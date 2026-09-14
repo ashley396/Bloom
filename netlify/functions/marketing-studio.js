@@ -163,7 +163,8 @@ import {
   evaluateMarketingOutput,
   buildCopyEvaluationDiagnostic,
   RETRY_FEEDBACK_VERSION,
-  buildConciseRewriteInstruction
+  buildConciseRewriteInstruction,
+  fitCtaToLimit
 } from "./_shared/marketing-content-revision.js";
 import {
   buildCanonicalConcept,
@@ -181,9 +182,10 @@ import {
   classifyAudience,
   classifyMessageIntent,
   classifyUserTemporalIntent,
+  classifyPromotionFacts,
   deriveFactRequirements
 } from "./_shared/marketing-canonical-concept.js";
-import { buildDeterministicCreativeDirection, inheritCreativeDirection, hasNoDrawableTextSlots } from "./_shared/marketing-creative-direction.js";
+import { buildDeterministicCreativeDirection, inheritCreativeDirection, hasNoDrawableTextSlots, GRAPHIC_TEXT_LIMITS_DEFAULT } from "./_shared/marketing-creative-direction.js";
 import { evaluateMarketingDiversity } from "./_shared/marketing-content-diversity.js";
 import { deriveApprovalObservations, dedupeTraits } from "./_shared/marketing-approval-learning.js";
 import { defaultVisualStyle } from "./_shared/ai-visual-revisions.js";
@@ -1262,7 +1264,7 @@ export function createMarketingStudioHandler(deps = {}) {
             const captionRequestText = buildWordingRevisionRequestText({ instruction, brief: currentItem.data.brief, priorText: priorCaption });
             const captionGen = await generateSocialPost({ persona: "Lily", channel: primaryPlatform, occasion: currentItem.data.title, shop: { name: shopName }, requestText: captionRequestText, brandVoiceSummary, visualStyleSummary });
             if (!captionGen.ok) return json(400, { error: captionGen.error });
-            if (!factsPreserved(priorCaption, captionGen.content.body)) {
+            if (!factsPreserved(priorCaption, captionGen.content.body, { instruction })) {
               return json(400, { error: "That revision would have changed an exact phone number, date, price, or link in the caption — nothing was changed. Try rephrasing the request." });
             }
             if (detectPermanentClosureMismatch(`${currentItem.data.brief} ${instruction}`, `${captionGen.content.headline} ${captionGen.content.body}`)) {
@@ -1277,6 +1279,9 @@ export function createMarketingStudioHandler(deps = {}) {
               shopEvidence: { name: shopName, phone: shopRow.data?.phone },
               inventoryEvidence: currentAsset.content?.grounded_in_inventory || [],
               candidate: captionGen.content,
+              // Test D: a revision's promotion contract = the brief plus the
+              // florist's own instruction (a code she types here is supplied).
+              canonicalConcept: { promotionFacts: classifyPromotionFacts({ requestText: `${currentItem.data.brief} ${instruction}` }), promotionRequestText: `${currentItem.data.brief} ${instruction}` },
               component: "caption",
               isRetryAttempt: true
             });
@@ -1543,7 +1548,7 @@ export function createMarketingStudioHandler(deps = {}) {
             const captionRequestText = buildWordingRevisionRequestText({ instruction, brief: currentItem.data.brief, priorText: priorCaption });
             gen = await generateSocialPost({ persona: "Lily", channel: primaryPlatform, occasion: currentItem.data.title, shop: { name: shopName }, requestText: captionRequestText, brandVoiceSummary, visualStyleSummary });
             if (!gen.ok) return json(400, { error: gen.error });
-            if (!factsPreserved(priorCaption, gen.content.body)) {
+            if (!factsPreserved(priorCaption, gen.content.body, { instruction })) {
               return json(400, { error: "That revision would have changed an exact phone number, date, price, or link in the caption — nothing was changed. Try rephrasing the request." });
             }
             if (detectPermanentClosureMismatch(`${currentItem.data.brief} ${instruction}`, `${gen.content.headline} ${gen.content.body}`)) {
@@ -1562,6 +1567,8 @@ export function createMarketingStudioHandler(deps = {}) {
               shopEvidence: { name: shopName, phone: shopRow.data?.phone },
               inventoryEvidence: currentAsset.content?.grounded_in_inventory || [],
               candidate: gen.content,
+              // Test D: the revision's promotion contract (brief + instruction).
+              canonicalConcept: { promotionFacts: classifyPromotionFacts({ requestText: `${currentItem.data.brief} ${instruction}` }), promotionRequestText: `${currentItem.data.brief} ${instruction}` },
               component: "caption",
               isRetryAttempt: true
             });
@@ -1623,7 +1630,7 @@ export function createMarketingStudioHandler(deps = {}) {
             const flyerGen = await generateFlyerContent({ persona: "Lily", message: flyerRequestText, occasion: currentItem.data.title, shop: { name: shopName } });
             if (!flyerGen.ok) return json(400, { error: flyerGen.error });
             const newFlyerText = `${flyerGen.content.headline} ${flyerGen.content.body} ${flyerGen.content.cta}`;
-            if (!factsPreserved(priorFlyerText, newFlyerText)) {
+            if (!factsPreserved(priorFlyerText, newFlyerText, { instruction })) {
               return json(400, { error: "That revision would have changed an exact phone number, date, price, or link on the flyer itself — nothing was changed. Try rephrasing the request." });
             }
             if (detectPermanentClosureMismatch(`${currentItem.data.brief} ${instruction}`, newFlyerText)) {
@@ -1647,9 +1654,14 @@ export function createMarketingStudioHandler(deps = {}) {
               // here too — a wording revision must never silently drift the
               // flyer text away from the concept it's actually supposed to
               // still match (or, for an explicit change, the new target).
-              canonicalConcept: conceptPreview,
+              // Test D: the revision's promotion contract rides on the same
+              // concept preview, and the CTA contract is enforced here too —
+              // a revision could otherwise ship an invented code or an
+              // over-limit CTA the renderer would then silently drop.
+              canonicalConcept: { ...(conceptPreview || {}), promotionFacts: classifyPromotionFacts({ requestText: `${currentItem.data.brief} ${instruction}` }), promotionRequestText: `${currentItem.data.brief} ${instruction}` },
               component: "flyer_text",
-              isRetryAttempt: true
+              isRetryAttempt: true,
+              graphicTextLimits: { ctaMaxChars: GRAPHIC_TEXT_LIMITS_DEFAULT.ctaMaxChars }
             });
             structuredLog("info", "marketing_revise_content_safety", {
               traceId: reviseTraceId,
@@ -1864,7 +1876,7 @@ export function createMarketingStudioHandler(deps = {}) {
             const gen = await generateVideoConcept({ persona: "Lily", channel: primaryPlatform, occasion: currentItem.data.title, shop: { name: shopName }, requestText, brandVoiceSummary, visualStyleSummary });
             if (!gen.ok) return json(400, { error: gen.error });
             const newText = [gen.content.script, gen.content.concept].filter(Boolean).join(" ");
-            if (!factsPreserved(priorText, newText)) {
+            if (!factsPreserved(priorText, newText, { instruction })) {
               return json(400, { error: "That revision would have changed an exact phone number, date, price, or link — nothing was changed. Try rephrasing the request." });
             }
             // Batch 1 rebuild: video_concept revisions previously ran ONLY
@@ -1921,7 +1933,7 @@ export function createMarketingStudioHandler(deps = {}) {
           const requestText = buildWordingRevisionRequestText({ instruction, brief: currentItem.data.brief, priorText });
           const gen = await generateSocialPost({ persona: "Lily", channel: primaryPlatform, occasion: currentItem.data.title, shop: { name: shopName }, requestText, brandVoiceSummary, visualStyleSummary });
           if (!gen.ok) return json(400, { error: gen.error });
-          if (!factsPreserved(priorText, gen.content.body)) {
+          if (!factsPreserved(priorText, gen.content.body, { instruction })) {
             return json(400, { error: "That revision would have changed an exact phone number, date, price, or link — nothing was changed. Try rephrasing the request." });
           }
           if (detectPermanentClosureMismatch(`${currentItem.data.brief} ${instruction}`, `${gen.content.headline} ${gen.content.body}`)) {
@@ -1941,6 +1953,8 @@ export function createMarketingStudioHandler(deps = {}) {
             shopEvidence: { name: shopName, phone: shopRow.data?.phone },
             inventoryEvidence: currentAsset.content?.grounded_in_inventory || [],
             candidate: gen.content,
+            // Test D: the revision's promotion contract (brief + instruction).
+            canonicalConcept: { promotionFacts: classifyPromotionFacts({ requestText: `${currentItem.data.brief} ${instruction}` }), promotionRequestText: `${currentItem.data.brief} ${instruction}` },
             component: "caption",
             isRetryAttempt: true
           });
@@ -2856,6 +2870,11 @@ export function createMarketingStudioHandler(deps = {}) {
             occasionCategory: socialConceptOccasionCategory
           });
           const socialConceptUserTemporalIntent = classifyUserTemporalIntent({ requestText: currentItem.data.brief });
+          // Test D: the structured promotion contract (null for a
+          // non-promotion) — the same object buildCanonicalConcept persists
+          // later, classified here from the same brief so the caption
+          // prompt, the evaluator and the rescue all read one contract.
+          const socialConceptPromotionFacts = classifyPromotionFacts({ requestText: currentItem.data.brief });
           const socialConceptCopyVoice = classifyCopyVoice({
             creativeMode: socialConceptCreativeMode,
             namedCampaign: socialConceptNamedCampaign,
@@ -2885,7 +2904,8 @@ export function createMarketingStudioHandler(deps = {}) {
               // the deterministic rescue that only ever runs after
               // generation has already failed twice.
               messageIntent: socialConceptMessageIntent,
-              userTemporalIntent: socialConceptUserTemporalIntent
+              userTemporalIntent: socialConceptUserTemporalIntent,
+              promotionFacts: socialConceptPromotionFacts
             }
           };
           copyGen = await generateSocialPost(socialPostArgs);
@@ -2920,7 +2940,7 @@ export function createMarketingStudioHandler(deps = {}) {
           // classified above travels with it, so the evaluator's narrow
           // everyday-caption shape guard can scope itself — never a second
           // classifier, and nothing else in the preview changes.
-          const captionConceptPreview = { audience: socialConceptAudience, messageIntent: socialConceptMessageIntent };
+          const captionConceptPreview = { audience: socialConceptAudience, messageIntent: socialConceptMessageIntent, promotionFacts: socialConceptPromotionFacts };
           let captionEval = evaluateMarketingOutput({
             route: "generate_content",
             request: currentItem.data.brief,
@@ -3127,7 +3147,8 @@ export function createMarketingStudioHandler(deps = {}) {
               occasionCategory: socialConceptOccasionCategory,
               namedCampaign: socialConceptNamedCampaign,
               messageIntent: socialConceptMessageIntent,
-              userTemporalIntent: socialConceptUserTemporalIntent
+              userTemporalIntent: socialConceptUserTemporalIntent,
+              promotionFacts: socialConceptPromotionFacts
             });
             // Reused as `nf` by generateFlyerCopy below — this is what
             // stops the flyer's on-image wording from independently
@@ -3313,6 +3334,12 @@ export function createMarketingStudioHandler(deps = {}) {
           occasionCategory: conceptOccasionCategory
         });
         const conceptUserTemporalIntent = classifyUserTemporalIntent({ requestText: currentItem.data.brief });
+        const conceptPromotionFacts = classifyPromotionFacts({ requestText: currentItem.data.brief });
+        // Test D, Part 5: the on-image text contract this branch will
+        // persist (buildDeterministicCreativeDirection copies these same
+        // defaults) — stated to the wording model and enforced by the
+        // evaluator, never advisory.
+        const flyerTextLimits = { ctaMaxChars: GRAPHIC_TEXT_LIMITS_DEFAULT.ctaMaxChars, headlineMaxChars: GRAPHIC_TEXT_LIMITS_DEFAULT.headlineMaxChars };
         const concept = {
           objective: conceptObjective,
           primarySubject: copyGen.content?.creative_brief?.primary_subject || copyGen.content?.visual_brief || null,
@@ -3346,7 +3373,11 @@ export function createMarketingStudioHandler(deps = {}) {
           // userTemporalIntent classified above, now reaching
           // buildFlyerContentTask's own generation prompt too.
           messageIntent: conceptMessageIntent,
-          userTemporalIntent: conceptUserTemporalIntent
+          userTemporalIntent: conceptUserTemporalIntent,
+          // Test D: the structured promotion contract + CTA limit reach the
+          // flyer-wording prompt and its evaluator.
+          promotionFacts: conceptPromotionFacts,
+          ctaMaxChars: flyerTextLimits.ctaMaxChars
         };
 
         // Batch 4 ("persisted canonical concept + revision enforcement",
@@ -3409,7 +3440,12 @@ export function createMarketingStudioHandler(deps = {}) {
               content: {
                 headline: nf.headline,
                 body: nf.body,
-                cta: nf.cta,
+                // Test D, Part 5: the deterministic notice/rescue CTA
+                // ("Call 606-506-4039 to place an order.", 36 chars) must
+                // meet the same on-image contract as AI wording — fitted
+                // here to "Call 606-506-4039", never silently dropped by
+                // the renderer's fail-safe.
+                cta: fitCtaToLimit(nf.cta, flyerTextLimits.ctaMaxChars, { shopPhone: shopRow.data?.phone, ctaIntent: null }),
                 // Only set when `nf` is the non-operational creative
                 // rescue (identified by its own `kind`) — an operational
                 // notice's on-image text is deterministic-by-design, not
@@ -3450,7 +3486,8 @@ export function createMarketingStudioHandler(deps = {}) {
               inventoryEvidence: flyerInventoryEvidence,
               canonicalConcept: flyerConcept,
               candidate: flyerGen.content,
-              component: "flyer_text"
+              component: "flyer_text",
+              graphicTextLimits: flyerTextLimits
             });
             if (flyerEval.reasons.length) {
               await recordUsage("copy", "request", 1);
@@ -3478,9 +3515,15 @@ export function createMarketingStudioHandler(deps = {}) {
                   canonicalConcept: flyerConcept,
                   candidate: flyerRetry.content,
                   component: "flyer_text",
-                  isRetryAttempt: true
+                  isRetryAttempt: true,
+                  graphicTextLimits: flyerTextLimits
                 });
-                if (flyerRetryEval.reasons.length <= flyerEval.reasons.length) {
+                // Test D, Part 5: judged on BLOCKING reasons — an advisory
+                // CTA-length reason never makes a draft "worse" than one
+                // with a real fault, and never decides the rescue below.
+                const currentFlyerBad = (flyerEval.blockingReasons || flyerEval.reasons).length;
+                const retryFlyerBad = (flyerRetryEval.blockingReasons || flyerRetryEval.reasons).length;
+                if (retryFlyerBad <= currentFlyerBad) {
                   flyerGen = flyerRetry;
                   flyerEval = flyerRetryEval;
                 }
@@ -3515,7 +3558,11 @@ export function createMarketingStudioHandler(deps = {}) {
           // all means it wasn't. The deterministic NOTICE rescue must
           // never fire in this branch; it produced "Store Notice / has an
           // update for you" on-image for an ordinary creative flyer.
-          if (flyerEval?.reasons?.length) {
+          // Test D, Part 5: rescue only for BLOCKING reasons. A CTA that was
+          // merely over the character contract has already been fitted by
+          // the evaluator's deterministic repair (applied just above) —
+          // the florist's real headline/body wording is kept.
+          if ((flyerEval?.blockingReasons || flyerEval?.reasons || []).length) {
             // Personal-occasion concept-preservation batch, Part 3: the
             // SAME conceptOccasionCategory/conceptNamedCampaign already
             // classified for this exact request (closure-captured from the
@@ -3529,11 +3576,13 @@ export function createMarketingStudioHandler(deps = {}) {
               occasionCategory: conceptOccasionCategory,
               namedCampaign: conceptNamedCampaign,
               messageIntent: conceptMessageIntent,
-              userTemporalIntent: conceptUserTemporalIntent
+              userTemporalIntent: conceptUserTemporalIntent,
+              promotionFacts: conceptPromotionFacts
             });
             flyerGen.content.headline = flyerFallback.headline;
             flyerGen.content.body = flyerFallback.body;
-            flyerGen.content.cta = flyerFallback.cta;
+            // Test D, Part 5: the rescue CTA meets the on-image contract too.
+            flyerGen.content.cta = fitCtaToLimit(flyerFallback.cta, flyerTextLimits.ctaMaxChars, { shopPhone: shopRow.data?.phone, ctaIntent: flyerConcept?.ctaIntent ?? null });
             flyerGen.content.creative_rescue_used = true;
           }
           return { ok: true, model: flyerGen.model, content: flyerGen.content };

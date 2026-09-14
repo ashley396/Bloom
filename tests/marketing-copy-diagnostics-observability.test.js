@@ -367,7 +367,9 @@ test("generateSocialPost: returns promptContext alongside the copy, computed fro
       userTemporalIntentLineIncluded: true,
       audienceGuidanceIncluded: Boolean(_internalsForTesting.AUDIENCE_COPY_GUIDANCE[c.audience]),
       // Test C writer-quality fix: send_flowers is an everyday gifting intent.
-      everydayShapeRuleIncluded: true
+      everydayShapeRuleIncluded: true,
+      // Test D: a non-promotion carries no promotion contract in its prompt.
+      promotionContractIncluded: false
     });
     assertNoRawCopy(JSON.stringify(result.promptContext), "promptContext");
   } finally {

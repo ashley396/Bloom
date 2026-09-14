@@ -200,6 +200,7 @@ ${copyVoiceLine(concept?.copyVoice)}
 ${audienceCopyLine(concept?.audience)}
 ${messageIntentCopyLine(concept?.messageIntent)}
 ${userTemporalIntentLine(concept?.userTemporalIntent)}
+${promotionFactsLine(concept?.promotionFacts)}
 ${TEMPORAL_FACT_SAFETY_RULE}
 - Match the platform's real voice: warm and conversational for Facebook/Instagram, concise everywhere.
 - visual_brief must describe a concrete photo concept (say what's actually in the shot — never a vague placeholder like "a beautiful arrangement") but must NEVER independently choose or name a specific flower species/variety (roses, peonies, hydrangeas, alstroemeria, lilies, tulips, etc.) — default to a generic, still-concrete scene ("a lush, professionally designed mixed-flower arrangement with varied fresh blooms and natural greenery") UNLESS the florist's own request named that flower, or the real stock list above supports it AND the request is actually about that stock.
@@ -606,7 +607,7 @@ function audienceCopyLine(audience) {
 // MESSAGE_INTENT_COPY_GUIDANCE / userTemporalIntentLine changes, so a
 // persisted attempt diagnostic can say which guidance text the model
 // actually saw. Never the guidance text itself.
-export const COPY_GUIDANCE_VERSION = "2026-09-11.v3";
+export const COPY_GUIDANCE_VERSION = "2026-09-14.v4";
 
 // Test C follow-up (live run on e239e8c still produced copy the evaluator
 // rejected twice): the shared, explicit list of constructions that read as
@@ -701,7 +702,9 @@ function buildSocialPostPromptContext(concept) {
     audienceGuidanceIncluded: Boolean(audienceCopyLine(concept?.audience)),
     // Test C writer-quality fix: whether the everyday SHAPE rule (and the
     // matching two-or-three-sentence LENGTH line) were in this prompt.
-    everydayShapeRuleIncluded: isEverydaySocialMessageIntent(concept?.messageIntent)
+    everydayShapeRuleIncluded: isEverydaySocialMessageIntent(concept?.messageIntent),
+    // Test D: whether the structured promotion contract reached the prompt.
+    promotionContractIncluded: Boolean(promotionFactsLine(concept?.promotionFacts))
   };
 }
 
@@ -720,6 +723,37 @@ function messageIntentCopyLine(messageIntent) {
 // supplied at all — this rule instead constrains what a temporal word
 // that WAS genuinely supplied may be turned into.
 const USER_TEMPORAL_INTENT_WORDS = { today: "today", tonight: "tonight", tomorrow: "tomorrow", this_weekend: "this weekend" };
+
+// Test D ("promotion fact-integrity"): the structured promotion contract,
+// rendered as the ONLY commercial terms the model may use. Every
+// unsupplied field is spelled out as "NONE — do not invent", because the
+// live failure was precisely the model helpfully adding a coupon code, a
+// checkout and an online channel to a request that supplied none.
+function promotionFactsLine(promotionFacts) {
+  if (!promotionFacts || typeof promotionFacts !== "object") return "";
+  const discount = promotionFacts.discount?.text
+    ? `Discount: "${promotionFacts.discount.text}" — state it EXACTLY like that (same number, same form), never another value and never an additional discount.`
+    : "Discount: NONE was supplied — do NOT state a percentage, dollar amount, or buy-one-get-one.";
+  const product = promotionFacts.product
+    ? `Product scope: "${promotionFacts.product}" — never widen, narrow, or rename it.`
+    : "Product scope: NONE was supplied — do NOT name one.";
+  const timing = promotionFacts.timing
+    ? `Timing: "${promotionFacts.timing}" — promotion timing only; never a delivery, availability, cutoff, or 'today only' claim, and never a specific date or weekday the florist didn't give.`
+    : "Timing: NONE was supplied — do NOT add a date, weekday, deadline, 'today only', or 'ends soon'.";
+  const code = promotionFacts.promoCode
+    ? `Promo code: "${promotionFacts.promoCode}" — use it exactly.`
+    : "Promo code: NONE — do NOT invent a code, coupon, or voucher, and never write 'use code'.";
+  const channel = promotionFacts.redemptionChannel
+    ? `Redemption channel: ${promotionFacts.redemptionChannel.replace("_", " ")} (supplied/verified) — nothing else.`
+    : "Redemption channel: NONE supplied or verified — do NOT mention online ordering, a website, 'at checkout', or 'in-store only'.";
+  const restrictions = promotionFacts.restrictions?.length
+    ? `Restrictions: ${promotionFacts.restrictions.map((r) => `"${r}"`).join("; ")} — state them exactly.`
+    : "Restrictions: NONE — do NOT invent exclusions, minimum purchases, limits, or fine print.";
+  return (
+    `- PROMOTION CONTRACT — the ONLY commercial terms allowed in this post. ${discount} ${product} ${timing} ${code} ${channel} ${restrictions} ` +
+    "Never add any of these unless they appear above: coupon/promo codes, \"at checkout\", online ordering, website redemption, in-store-only, minimum purchase, buy-one-get-one, free delivery, limited quantities, \"while supplies last\", exclusions, expiration or specific dates, \"today only\", same-day delivery, or an additional discount."
+  );
+}
 
 function userTemporalIntentLine(userTemporalIntent) {
   const word = USER_TEMPORAL_INTENT_WORDS[userTemporalIntent];
@@ -751,11 +785,12 @@ ${copyVoiceLine(concept?.copyVoice)}
 ${audienceCopyLine(concept?.audience)}
 ${messageIntentCopyLine(concept?.messageIntent)}
 ${userTemporalIntentLine(concept?.userTemporalIntent)}
+${promotionFactsLine(concept?.promotionFacts)}
 ${TEMPORAL_FACT_SAFETY_RULE}
 - ANY concrete fact the florist gave you verbatim — a time, a phone number, a price, a date, a percentage — must appear in your output EXACTLY as given. Never paraphrase, round, or reformat a number or time. This is the single most important rule here.
 - headline: short, bold, the first thing read.
 - body: the supporting line(s) — can be empty string if the headline says everything.
-- cta: the one action line (a phone number to call, "Order online," "Stop by today," etc).
+- cta: the one action line, at most ${Number(concept?.ctaMaxChars) > 0 ? Number(concept.ctaMaxChars) : 30} characters — the shop's real phone number given above ("Call" followed by that exact number), or a few words the request itself supports. Never a sales channel the florist didn't supply or that isn't verified for this shop: no "Order online," no website, no checkout, no app. Never a full sentence.
 - Never invent a price, discount, date, or promise Florisyn can't confirm — if the florist didn't give you a fact, don't make one up.
 - NEVER CLAIM A SPECIFIC BUSINESS FACT THAT ISN'T VERIFIED. Never say a shipment "just arrived," is "back in stock," "now available," or that the shop currently "has," "carries," "uses," "is using," "is crafting with," "is featuring," "includes," "offers," "stocks," or "sells" a specific named flower/variety — unless the request itself told you that fact. You must NEVER independently choose or name a specific flower species/variety here at all unless the florist's own request named one — default to generic flower language ("beautiful blooms," "fresh flowers," "a colorful arrangement") always; a specific, unverified stock claim or an invented species name never is fine.
 - Preserve the florist's own meaning exactly — never add a reason, an urgency phrase, a future plan, or a farewell/gratitude line they didn't write. A plain operational notice (a temporary closing, a schedule change, a phone number to call) stays plain: no "final orders," no "prepare for," no "we look forward to serving you again," no invented event or sentiment of any kind. If the florist only said the shop is closing early and gave a number to call, that is the ENTIRE message — say only that, just more concisely if needed, never more.
@@ -873,5 +908,6 @@ export const _internalsForTesting = {
   GENERIC_CONSTRUCTION_RULE_BRIGHTEN_DAY,
   EVERYDAY_SOCIAL_SHAPE_RULE,
   lengthRuleLine,
+  promotionFactsLine,
   TEMPORAL_FACT_SAFETY_RULE
 };

@@ -579,7 +579,10 @@ test("Part L #17 — revise_content (social_copy): 'promote 20% off instead' upd
   const mock = mockCloudflareGenerate({
     platform: "facebook",
     headline: "20% Off Today",
-    body: "Take 20% off fresh spring bouquets today only.",
+    // Test D (review finding 2): revise_content enforces the promotion
+    // contract — "today only" was never supplied, so the draft states only
+    // the offer the florist asked to promote.
+    body: "Take 20% off fresh spring bouquets.",
     cta: "Order now",
     visual_brief: "v",
     hashtags: [],
@@ -610,6 +613,75 @@ test("Part L #17 — revise_content (social_copy): 'promote 20% off instead' upd
     assert.equal(concept.primarySubjectClass, parent.primarySubjectClass);
     const changeRecord = assetInsert.payload.content.concept_change;
     assert.deepEqual(new Set(changeRecord.changed_fields), new Set(["objective", "promotionIntent"]));
+  } finally {
+    mock.restore();
+  }
+});
+
+// Test D (independent review, round 2): the revision route enforces the
+// promotion contract THROUGH THE REAL HANDLER — an invented code is refused
+// (nothing changes), a code the florist types into the instruction is kept.
+test("Test D — revise_content (social_copy): a revision that invents a promo code is refused; nothing is changed", async () => {
+  const mock = mockCloudflareGenerate({
+    platform: "facebook",
+    headline: "20% Off Bouquets",
+    body: "Take 20% off fresh spring bouquets. Use code BLOOM20 at checkout.",
+    cta: "Order now",
+    visual_brief: "v",
+    hashtags: [],
+    asset_requirements: []
+  });
+  try {
+    const client = createFakeSupabaseClient([
+      superAdminRow(),
+      { data: { id: "item-1", content_type: "text_post", title: "t", brief: "b", status: "in_review" }, error: null },
+      { data: [{ id: "variant-1", platform: "facebook", asset_id: "asset-1" }], error: null },
+      { data: SOCIAL_COPY_ASSET_WITH_CONCEPT, error: null },
+      { data: { name: "Test Florals" }, error: null },
+      { data: null, error: null },
+      { data: null, error: null },
+      { data: { id: "asset-2" }, error: null },
+      { data: null, error: null },
+      { data: null, error: null }
+    ]);
+    const handler = createMarketingStudioHandler(baseDeps(client));
+    const res = await handler(event("revise_content", { shop_id: "shop-1", content_item_id: "item-1", instruction: "promote 20% off instead" }));
+    assert.equal(res.statusCode, 400, res.body);
+    assert.match(JSON.parse(res.body).error, /can't safely use/);
+    assert.equal(findInsert(client, "ai_generated_assets"), undefined, "no new asset is written");
+  } finally {
+    mock.restore();
+  }
+});
+
+test("Test D — revise_content (social_copy): a promo code the florist types into the instruction is supplied, and ships", async () => {
+  const mock = mockCloudflareGenerate({
+    platform: "facebook",
+    headline: "20% Off Bouquets",
+    body: "Take 20% off fresh spring bouquets with code BLOOM20.",
+    cta: "Order now",
+    visual_brief: "v",
+    hashtags: [],
+    asset_requirements: []
+  });
+  try {
+    const client = createFakeSupabaseClient([
+      superAdminRow(),
+      { data: { id: "item-1", content_type: "text_post", title: "t", brief: "b", status: "in_review" }, error: null },
+      { data: [{ id: "variant-1", platform: "facebook", asset_id: "asset-1" }], error: null },
+      { data: SOCIAL_COPY_ASSET_WITH_CONCEPT, error: null },
+      { data: { name: "Test Florals" }, error: null },
+      { data: null, error: null },
+      { data: null, error: null },
+      { data: { id: "asset-2" }, error: null },
+      { data: null, error: null },
+      { data: null, error: null }
+    ]);
+    const handler = createMarketingStudioHandler(baseDeps(client));
+    const res = await handler(event("revise_content", { shop_id: "shop-1", content_item_id: "item-1", instruction: "promote 20% off with code BLOOM20 instead" }));
+    assert.equal(res.statusCode, 200, res.body);
+    const assetInsert = findInsert(client, "ai_generated_assets");
+    assert.match(assetInsert.payload.content.body, /code BLOOM20/);
   } finally {
     mock.restore();
   }

@@ -173,7 +173,11 @@ const CLOSING_COPY = {
 // Also doubles as the flyer-content response — generateFlyerContent only
 // ever reads headline/body/cta off whatever the mocked model returns, so
 // the same fixture legitimately exercises both call sites.
-const CLOSING_FLYER = { headline: "CLOSING EARLY", body: "Lilies in Bloom will close at 2:30 today.", cta: "Need to place an order? Call 606-506-4039." };
+// Test D, Part 5: the on-image CTA has a hard 30-character contract now, so
+// this fixture's CTA is the phone call itself (the over-limit path — retry,
+// then deterministic fit, never rescue — is covered in
+// tests/marketing-promotion-fact-integrity.test.js).
+const CLOSING_FLYER = { headline: "CLOSING EARLY", body: "Lilies in Bloom will close at 2:30 today.", cta: "Call 606-506-4039" };
 
 function generateFlyerFixtureQueue({ shopPhone = "606-506-4039" } = {}) {
   return [
@@ -374,11 +378,15 @@ test("generate_content (real dispatch): a flyer-routed closing notice never call
     const insertedContent = assetInsert.ops.find((op) => op[0] === "insert")[1][0].content;
     assert.equal(insertedContent.headline, expected.headline);
     assert.equal(insertedContent.body, expected.body);
-    assert.equal(insertedContent.cta, expected.cta);
+    // Test D, Part 5: the on-image CTA is fitted to the 30-character contract
+    // at the handoff ("Call 606-506-4039 to place an order." → the phone-bearing
+    // clause); the caption below still carries the full deterministic sentence.
+    assert.equal(insertedContent.cta, "Call 606-506-4039");
+    assert.equal(expected.cta, "Call 606-506-4039 to place an order.", "sanity: the deterministic notice wording itself is unchanged");
     assert.equal(insertedContent.caption, expected.caption);
     assert.equal(insertedContent.headline, "Closing Early Today");
     assert.equal(insertedContent.body, "Lilies in Bloom is closing at 2:30 today.");
-    assert.equal(insertedContent.cta, "Call 606-506-4039 to place an order.");
+    assert.equal(insertedContent.cta, "Call 606-506-4039"); // Test D, Part 5: fitted on-image CTA
     assert.equal(insertedContent.caption, "Lilies in Bloom is closing at 2:30 today. Customers can call 606-506-4039 to place an order.");
     for (const banned of ["final orders", "special event", "look forward to serving you again", "appreciate your understanding"]) {
       assert.doesNotMatch(`${insertedContent.headline} ${insertedContent.body} ${insertedContent.cta} ${insertedContent.caption}`.toLowerCase(), new RegExp(banned));
@@ -483,7 +491,8 @@ test("generate_content (real dispatch): the EXACT bare sentence from Ashley's br
     assert.equal(insertedRow.model, "deterministic", "the persisted asset must record which branch actually ran — checkable independently of this report");
     assert.equal(insertedRow.content.headline, expected.headline);
     assert.equal(insertedRow.content.body, expected.body);
-    assert.equal(insertedRow.content.cta, expected.cta);
+    // Test D, Part 5: on-image CTA fitted to the 30-char contract (see above).
+    assert.equal(insertedRow.content.cta, "Call 606-506-4039");
     assert.equal(insertedRow.content.caption, expected.caption);
     // The exact byte-for-byte old defect must never appear anywhere in the
     // persisted content — proves this isn't just "facts preserved," it's
@@ -1957,7 +1966,9 @@ test("ACCEPTANCE (real dispatch): the canonical shop with an empty stored phone 
     // The four required visible strings, exactly.
     assert.equal(c.headline, "Closing Early Today");
     assert.equal(c.body, "Lilies in Bloom is closing at 2:30 today.");
-    assert.equal(c.cta, "Call 606-506-4039 to place an order.");
+    // Test D, Part 5: the on-image CTA is the phone-bearing clause, within the
+    // 30-character contract; the caption keeps the full sentence.
+    assert.equal(c.cta, "Call 606-506-4039");
     assert.equal(
       c.caption,
       "Lilies in Bloom is closing at 2:30 today. Customers can call 606-506-4039 to place an order."
@@ -2036,7 +2047,9 @@ test("ACCEPTANCE (real dispatch): with the shop's own phone NOW saved, the flyer
 
     assert.equal(c.headline, "Closing Early Today");
     assert.equal(c.body, "Lilies in Bloom is closing at 2:30 today.");
-    assert.equal(c.cta, "Call 606-506-4039 to place an order.");
+    // Test D, Part 5: the on-image CTA is the phone-bearing clause, within the
+    // 30-character contract; the caption keeps the full sentence.
+    assert.equal(c.cta, "Call 606-506-4039");
     assert.equal(c.caption, "Lilies in Bloom is closing at 2:30 today. Customers can call 606-506-4039 to place an order.");
     assert.equal(c.brand.shopName, "Lilies in Bloom");
     assert.equal(c.brand.phone, "606-506-4039");

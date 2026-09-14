@@ -29,6 +29,9 @@ const PHONE = "606-506-4039";
 const TEST_C_BRIEF = "Create a Facebook post encouraging people to send flowers today.";
 const PROMO_BRIEF = "Create a flyer: 20% off all bouquets this Saturday only.";
 const NOTICE_BRIEF = "We are closing early at 3 PM today.";
+// Test D: a promotion caption must state the supplied offer, or the
+// promotion fact-integrity evaluator (correctly) rejects it.
+const PROMO_CAPTION = "This Saturday only, take 20% off all bouquets at Lilies in Bloom. Come pick one for someone who could use it.";
 // Subject-forward branch WITH drawable text: no exact facts (so not the
 // exact-facts branch), holiday_seasonal → seasonal_feature (brand/headline/
 // supporting on). This is the one case that proves the guard leaves the
@@ -243,7 +246,7 @@ test("3 — a mixed-slot designed flyer (headline/brand/supporting on, cta/phone
   assert.equal(requestNeedsFlyerWording(PROMO_BRIEF), true, "sanity: a priced, dated offer is a designed flyer");
   // No CTA in the wording so the CTA/phone slots resolve off — a genuinely
   // mixed layout: headline/brand/supporting on, cta/phone off.
-  const { res, calls, content } = await runGenerate(PROMO_BRIEF, { flyerCopy: { headline: "Saturday Only", body: "Twenty percent off every bouquet this Saturday at Lilies in Bloom.", cta: "" } });
+  const { res, calls, content } = await runGenerate(PROMO_BRIEF, { captionBodies: [PROMO_CAPTION], flyerCopy: { headline: "20% Off Bouquets Saturday Only", body: "20% off every bouquet this Saturday at Lilies in Bloom.", cta: "" } });
   assert.equal(res.statusCode, 200, res.body);
   assert.ok(calls.flyer >= 1, "a designed flyer still generates its on-image wording");
   assert.ok(calls.flyer <= 2, "and still never more than attempt + one bounded retry");

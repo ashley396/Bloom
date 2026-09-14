@@ -963,6 +963,8 @@ test("buildCopyEvaluationDiagnostic: never carries the candidate's own generated
     attempt: 1,
     reasonCodes: ["invented_temporal_claim"],
     weakCopyReasonCodes: [],
+    // Test D: which promotion-term checks fired — none for a non-promotion.
+    promotionTermCodes: [],
     repairedBy: ["stripInventedTemporalClaims"],
     diversityDecision: "retry",
     diversityRepeatedSignals: ["concept_fingerprint"],
@@ -1018,6 +1020,7 @@ test("buildCopyEvaluationDiagnostic: missing evalResult/diversityEval degrade to
     attempt: 2,
     reasonCodes: [],
     weakCopyReasonCodes: [],
+    promotionTermCodes: [],
     repairedBy: [],
     diversityDecision: null,
     diversityRepeatedSignals: [],

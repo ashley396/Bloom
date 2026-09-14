@@ -66,10 +66,14 @@ const DATE_RE =
 // previously not tracked as a fact at all.
 const TIME_RE = /\b([01]?\d|2[0-3]):[0-5]\d\s*(?:am|pm|AM|PM)?\b/g;
 
+// Test D: a stated discount ("20% off", "$5 off") is a fact exactly like
+// a price or a time — it must survive every rewrite verbatim.
+const DISCOUNT_TOKEN_RE = /\b\d{1,3}\s?%\s*off\b|\$\s?\d+(?:\.\d{2})?\s*off\b/gi;
+
 export function extractFactTokens(text) {
   const source = String(text || "");
   const tokens = new Set();
-  for (const re of [PHONE_RE, PRICE_RE, URL_RE, DATE_RE, TIME_RE]) {
+  for (const re of [PHONE_RE, PRICE_RE, URL_RE, DATE_RE, TIME_RE, DISCOUNT_TOKEN_RE]) {
     // Trimmed for the same reason firstMatch() trims: TIME_RE's trailing
     // `\s*(?:am|pm)?` swallows a trailing space when no am/pm follows
     // ("2:30 tomorrow" → "2:30 "). An untrimmed token is not the fact —
@@ -91,11 +95,17 @@ export function extractFactTokens(text) {
  * real phone number/date/time/price/URL fails this — the caller must refuse
  * the revision rather than silently lose (or paraphrase) a business fact
  * the florist never asked to change. */
-export function factsPreserved(originalText, revisedText) {
-  const tokens = extractFactTokens(originalText);
+export function factsPreserved(originalText, revisedText, { instruction = "" } = {}) {
+  // Test D: discounts are compared by meaning ("twenty percent off" ==
+  // "20% off"), and a discount the florist's own instruction re-supplies
+  // ("make it 25% off") is allowed to change — every other fact token is
+  // still verbatim.
+  const tokens = extractFactTokens(normalizeDiscountWording(originalText));
   if (!tokens.length) return true;
-  const revised = String(revisedText || "");
-  return tokens.every((t) => revised.includes(t));
+  const revised = normalizeDiscountWording(revisedText);
+  const instructionSuppliesDiscount = new RegExp(DISCOUNT_TOKEN_RE.source, "i").test(normalizeDiscountWording(instruction));
+  const discountToken = new RegExp(`^(?:${DISCOUNT_TOKEN_RE.source})$`, "i");
+  return tokens.every((t) => revised.includes(t) || (instructionSuppliesDiscount && discountToken.test(t)));
 }
 
 /** Derives the best-effort, never-fabricated trait(s) a revision actually
@@ -396,7 +406,25 @@ export function requestSignalsPlainOperationalNotice(requestText) {
 // sale/discount/offer, not merely "an event" (a wedding show, a class),
 // which legitimately belongs to a different objective (seasonal_occasion/
 // awareness) and isn't itself evidence the shop is running a promotion.
-const REAL_PROMOTION_SIGNAL_RE = /\b(sale|%\s?off|percent off|discount|promo(?:tion)?|special offer|coupon|deal|bogo|buy one get one)\b/i;
+const REAL_PROMOTION_SIGNAL_RE = /\b(sale|%\s?off|percent off|discount|promo(?:tion)?|special offer|coupon|deal|bogo|buy one get one|half off|two for one|save\s+\d{1,3}\s?%|save\s+\$\s?\d+|\d+\s+dollars\s+off)\b|\$\s?\d+(?:\.\d{2})?\s*off\b/i;
+
+// Test D: discounts written in words ("twenty percent off", "half off",
+// "five dollars off") mean exactly what the digits mean. One normalizer,
+// used by the contract classifier and the promotion-terms detector alike,
+// so "twenty percent off" and "20% off" can never disagree.
+const DISCOUNT_WORD_NUMBERS = Object.freeze({
+  five: 5, ten: 10, fifteen: 15, twenty: 20, "twenty-five": 25, "twenty five": 25, thirty: 30, forty: 40, fifty: 50, sixty: 60, seventy: 70, "seventy-five": 75, "seventy five": 75, eighty: 80, ninety: 90
+});
+export function normalizeDiscountWording(text) {
+  let out = String(text || "");
+  out = out.replace(/\b(five|ten|fifteen|twenty(?:[- ]five)?|thirty|forty|fifty|sixty|seventy(?:[- ]five)?|eighty|ninety)\s+(percent|dollars)\b/gi, (m, w, unit) => `${DISCOUNT_WORD_NUMBERS[w.toLowerCase()]} ${unit.toLowerCase()}`);
+  out = out.replace(/\bhalf\s+(?:off|price)\b/gi, "50% off");
+  out = out.replace(/\b(\d{1,3})\s+percent\b/gi, "$1%");
+  out = out.replace(/\b(\d+)\s+dollars\s+off\b/gi, "$$$1 off");
+  out = out.replace(/\bsave\s+(\d{1,3})\s?%(?:\s+on\b)?/gi, "$1% off");
+  out = out.replace(/\bsave\s+\$\s?(\d+(?:\.\d{2})?)(?:\s+on\b)?/gi, "$$$1 off");
+  return out;
+}
 
 /** Phase 3 live-test fix (objective must become functional, requirement
  * 9-I): a real promotion is a claim about the business, exactly like a
@@ -875,6 +903,284 @@ const MESSAGE_INTENT_PHRASES = Object.freeze({
 // remain governed entirely by the existing, unmodified
 // detectUnverifiedServiceAvailabilityClaim/detectInventedTemporalClaim
 // detectors — this table is prose formatting only, never a safety check).
+// ---------------------------------------------------------------------------
+// Test D ("promotion fact-integrity", 2026-09-14). Live failure: for "Create
+// a cute Facebook post for 20% off bouquets this weekend." the caption ended
+// "Simply use code BLOOM20 at checkout to redeem your discount." and the
+// on-image CTA read "Order online or call us at 20% off with code BLOOM20
+// this weekend!" — a coupon code, a checkout channel and an online-ordering
+// channel, none supplied — and every detector above passed both, because
+// none of them models a promotion's commercial terms.
+//
+// These checks compare generated wording against the STRUCTURED promotion
+// contract (marketing-canonical-concept.js classifyPromotionFacts): a term
+// is legal only when the contract carries it (supplied by the florist, or
+// verified from trusted shop capability). "this weekend" stays legal
+// because the florist supplied it — and detectUnverifiedServiceAvailability
+// Claim (unchanged) still blocks turning it into a delivery/availability
+// promise. Sentence-scoped, same shape as the detectors above. Pure.
+// ---------------------------------------------------------------------------
+export const PROMOTION_TERM_CODES = Object.freeze([
+  "promotion_code_invented",
+  "promotion_code_altered",
+  "promotion_checkout_invented",
+  "promotion_online_ordering_invented",
+  "promotion_discount_altered",
+  "promotion_bogo_invented",
+  "promotion_free_delivery_invented",
+  "promotion_urgency_invented",
+  "promotion_restriction_invented",
+  "promotion_delivery_claim_invented",
+  "promotion_date_invented",
+  "promotion_offer_missing"
+]);
+
+// Code LANGUAGE ("use code", "coupon") — but never "no coupon needed" /
+// "without a code", which are the opposite claim.
+const PT_CODE_LANGUAGE_RE = /(?<!\bno\s)(?<!\bwithout\s)(?<!\bwithout\s(?:a|any)\s)(?<!\bskip\s)(?<!\bskip\s+the\s)(?<!\b(?:qr|dress|zip|area|bar|postal|door)\s)\b(?:promo\s*codes?|coupon\s*codes?|discount\s*codes?|coupons?|vouchers?|use\s+(?:the\s+)?code|enter\s+(?:the\s+)?code|with\s+(?:the\s+)?code)\b/i;
+// A code VALUE: after the word code/coupon/promo, or a bare all-caps
+// letters+digits token ("BLOOM20", "FLOWERS-20") — the live failure class
+// even when the word "code" is omitted ("just say BLOOM20").
+// (Case-sensitive on purpose: the code-like lookahead — a digit, or ALL
+// CAPS — must not be case-folded, or "coupon needed" would capture "needed".)
+// After "code"/"coupon": a digit-bearing or ALL-CAPS token. After "promo":
+// a digit-bearing token only ("PROMO ALERT" is a headline, not a code).
+// Never after "QR code" / "dress code" / "zip code".
+const PT_CODE_AFTER_WORD_RE = /(?<!\b(?:[Qq][Rr]|QR|[Dd]ress|[Zz]ip|[Aa]rea|[Bb]ar|[Pp]ostal|[Dd]oor)\s)\b(?:[Cc]ode|CODE|[Cc]oupon|COUPON)\s*[:#]?\s*(?=[A-Za-z0-9-]*\d|[A-Z0-9-]{3,}\b)([A-Za-z][A-Za-z0-9-]{2,19})\b|\b(?:[Pp]romo|PROMO)\s*[:#]?\s*(?=[A-Za-z-]*\d)([A-Za-z][A-Za-z0-9-]{2,19})\b/g;
+const PT_BARE_CODE_TOKEN_RE = /\b([A-Z]{3,}-?\d{1,4})\b/g;
+const PT_CHECKOUT_RE = /\bcheckout\b/i;
+// Sales channels: ordering/redeeming online, a website, an app, a bio link,
+// social DMs — never bare "online" (sharing a post online is not a channel).
+const PT_ONLINE_RE =
+  /\border(?:s|ing)?\s+online\b|\bonline\s+(?:order\w*|shop\w*|store|checkout|purchase\w*|at|via|through|now)\b|\b(?:shop|buy|redeem|book|available)\s+online\b|\bon\s+our\s+(?:site|website|app)\b|\bour\s+(?:website|app)\b|\bvia\s+(?:our\s+|the\s+)?app\b|\bthe\s+app\b|\blink\s+in\s+(?:our\s+)?bio\b|\bthrough\s+(?:instagram|facebook|dms?|messenger|our\s+page)\b|\bdm\s+us\b|\bmessage\s+us\s+(?:to\s+order|your\s+order)\b|https?:\/\/|\bwww\.|\b[a-z0-9-]+\.(?:com|net|org|shop|co|us|florist)\b/i;
+// Discount CLAIMS only — a percentage that is an offer ("20% off", "save
+// 20%", "take 20%", "an extra 10% off"), never "100% fresh".
+const PT_PERCENT_OFF_RE = /(\d{1,3})\s?%\s*(?:off|discount)\b/gi;
+const PT_SAVE_PERCENT_RE = /\b(?:save|take|get|enjoy|receive)\s+(?:an?\s+)?(?:extra\s+|additional\s+)?(\d{1,3})\s?%/gi;
+const PT_AMOUNT_OFF_RE = /\$\s?(\d+(?:\.\d{2})?)\s*off\b/gi;
+const PT_UP_TO_RE = /\bup\s+to\s+(?:\d{1,3}\s?%|\$\s?\d+)/i;
+const PT_BOGO_RE = /\b(?:bogo|buy\s+one,?\s+get\s+one(?:\s+free)?|b1g1|two\s+for\s+(?:one|1)|2\s+for\s+1)\b/i;
+const PT_FREE_DELIVERY_RE = /\bfree\s+(?:delivery|shipping)\b/i;
+// Delivery / availability promises inside a promotion — the florist's own
+// "this weekend" is promotion timing, never a delivery or stock promise.
+const PT_DELIVERY_RE =
+  /\bwe\s+deliver\b|\bwe'?ll\s+deliver\b|\bdeliver(?:y|ed|ing|s|ies)?\s+(?:available|included|is\s+available|to\s+your|right\s+to|straight\s+to|anywhere|all\s+(?:weekend|week|day)|this\s+weekend|today|tomorrow|by|on\s+(?:mon|tues|wednes|thurs|fri|satur|sun)day|for\s+free)\b|\bget\s+(?:it|them|one|yours)\s+delivered\b|\bdelivered\s+(?:right|straight|to|by|today|tomorrow)\b|\b(?:same|next)[- ]day\s+delivery\b|\bfree\s+(?:delivery|shipping)\b|\bavailable\s+(?:for\s+)?(?:delivery|pickup|pick-up|all\s+weekend|all\s+week|this\s+weekend|today|tomorrow|now|(?:mon|tues|wednes|thurs|fri|satur|sun)day)\b|\bin\s+stock\b|\bready\s+(?:for\s+pickup|to\s+go|today)\b/i;
+const PT_URGENCY_RE =
+  /\b(?:today|tonight|this\s+week|this\s+weekend|weekend)\s+only\b|\bends?\s+(?:soon|today|tonight|(?:mon|tues|wednes|thurs|fri|satur|sun)day)\b|\blast\s+chance\b|\bhurry\b|\bdon'?t\s+miss\s+(?:out|it|this)\b|\bwhile\s+supplies\s+last\b|\bwhile\s+stocks?\s+last\b|\blimited\s+(?:time|quantit\w+|stock|supply)\b|\bfor\s+a\s+limited\s+time\b|\bonly\s+\d+\s+(?:left|remaining)\b|\bfirst\s+\d+\s+(?:customers|orders|people)\b|\bact\s+(?:fast|now)\b/i;
+const PT_RESTRICTION_RE =
+  /\bexclud\w+\b|\bminimum\s+(?:purchase|order|spend)\b|\bno\s+minimum\b|\bin[- ]store\s+only\b|\bonline\s+only\b|\bwalk[- ]ins?\s+only\b|\bone\s+per\s+customer\b|\blimited\s+to\s+\d+\b|\bcannot\s+be\s+combined\b|\bnot\s+valid\b|\bsome\s+exclusions\b|\bterms\s+(?:and\s+conditions\s+)?apply\b|\bselect\s+(?:items|styles|bouquets|arrangements)\b|\bin[- ]stock\s+items?\s+only\b|\bregular[- ]priced?\b|\bspend\s+\$\d+|\borders?\s+(?:over|of|above)\s+\$\d+|\bover\s+\$\d+\b|\bwhen\s+you\s+(?:buy|spend)\b|\bwith\s+(?:any\s+|every\s+|each\s+)?purchase\b|\bpurchases?\s+of\s+\$\d+|\bfree\s+\w+\s+with\b/i;
+// Invented dates: a weekday, a calendar date, or an expiry the florist
+// never gave ("this weekend" supplies no weekday).
+const PT_DATE_RE = /\b(?:mon|tues|wednes|thurs|fri|satur|sun)days?\b|\b\d{1,2}\/\d{1,2}(?:\/\d{2,4})?\b|\b(?:jan|feb|mar|apr|may|jun|jul|aug|sept?|oct|nov|dec)[a-z]*\.?\s+\d{1,2}\b|\bexpires?\b|\bvalid\s+(?:through|thru|until|till)\b/gi;
+
+function requestSuppliesPattern(requestText, re) {
+  const flags = re.flags.replace("g", "");
+  return new RegExp(re.source, flags).test(String(requestText || ""));
+}
+function escapeRe(text) {
+  return String(text).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+function codesMatch(a, b) {
+  return String(a || "").replace(/-/g, "").toUpperCase() === String(b || "").replace(/-/g, "").toUpperCase();
+}
+
+/**
+ * Every unsupported commercial term in `generatedText`, as
+ * { code, sentence } entries — one per (sentence, code). Empty when there is
+ * no promotion contract at all (a non-promotion never reaches this). Never
+ * a blacklist alone: discount values, codes, channels, dates and delivery
+ * claims are compared to the contract and to what the florist's own
+ * request supplied; a supplied (or verified) term is allowed through.
+ */
+export function detectUnsupportedPromotionTerms({ generatedText, requestText = "", promotionFacts = null, verifiedCapabilities = null } = {}) {
+  if (!promotionFacts || typeof promotionFacts !== "object") return [];
+  const contract = promotionFacts;
+  const request = normalizeDiscountWording(requestText);
+  const onlineAllowed = contract.redemptionChannel === "online" || verifiedCapabilities?.onlineOrdering === true || requestSuppliesPattern(request, PT_ONLINE_RE);
+  const checkoutAllowed = onlineAllowed || requestSuppliesPattern(request, PT_CHECKOUT_RE);
+  const restrictionsAllowed = (contract.restrictions || []).map((r) => String(r).toLowerCase());
+  const violations = [];
+  const push = (code, sentence) => {
+    if (!violations.some((v) => v.code === code && v.sentence === sentence)) violations.push({ code, sentence });
+  };
+  const suppliedByRequest = (phrase) => requestSuppliesPattern(request, new RegExp(escapeRe(phrase), "i"));
+  const allowedRestriction = (phrase) => restrictionsAllowed.some((r) => r.includes(String(phrase).toLowerCase()));
+
+  for (const raw of sentencesOf(generatedText)) {
+    const sentence = raw.trim();
+    const norm = normalizeDiscountWording(sentence);
+
+    // Coupon / promo codes — a value after the word "code", or a bare
+    // caps+digits token; either must be the supplied code or nothing.
+    const codeValues = [...norm.matchAll(PT_CODE_AFTER_WORD_RE)].map((m) => m[1] || m[2]).concat([...sentence.matchAll(PT_BARE_CODE_TOKEN_RE)].map((m) => m[1]));
+    const foreignCodes = codeValues.filter((c) => !(contract.promoCode && codesMatch(c, contract.promoCode)));
+    if (contract.promoCode) {
+      if (foreignCodes.length) push("promotion_code_altered", sentence);
+    } else if (foreignCodes.length || PT_CODE_LANGUAGE_RE.test(norm)) {
+      push("promotion_code_invented", sentence);
+    }
+    // Redemption channels.
+    if (!checkoutAllowed && PT_CHECKOUT_RE.test(norm)) push("promotion_checkout_invented", sentence);
+    if (!onlineAllowed && PT_ONLINE_RE.test(norm)) push("promotion_online_ordering_invented", sentence);
+    // Discount value must match the contract exactly.
+    const percents = [...norm.matchAll(PT_PERCENT_OFF_RE)].map((m) => m[1]).concat([...norm.matchAll(PT_SAVE_PERCENT_RE)].map((m) => m[1]));
+    for (const value of percents) {
+      const ok = contract.discount?.type === "percent" && String(contract.discount.value) === value;
+      if (!ok) push("promotion_discount_altered", sentence);
+    }
+    for (const m of norm.matchAll(PT_AMOUNT_OFF_RE)) {
+      const ok = contract.discount?.type === "amount" && Number(contract.discount.value) === Number(m[1]);
+      if (!ok) push("promotion_discount_altered", sentence);
+    }
+    if (contract.discount?.type !== "bogo" && PT_BOGO_RE.test(norm)) push("promotion_bogo_invented", sentence);
+    if (PT_UP_TO_RE.test(norm) && !requestSuppliesPattern(request, PT_UP_TO_RE)) push("promotion_discount_altered", sentence);
+    // Delivery / free delivery / urgency / restrictions / dates only when the florist supplied them.
+    if (PT_FREE_DELIVERY_RE.test(norm) && !requestSuppliesPattern(request, PT_FREE_DELIVERY_RE) && !allowedRestriction("free delivery") && !allowedRestriction("free shipping")) {
+      push("promotion_free_delivery_invented", sentence);
+    }
+    const delivery = norm.match(PT_DELIVERY_RE);
+    if (delivery && !requestSuppliesPattern(request, PT_DELIVERY_RE)) push("promotion_delivery_claim_invented", sentence);
+    const urgency = norm.match(PT_URGENCY_RE);
+    if (urgency && !suppliedByRequest(urgency[0]) && !allowedRestriction(urgency[0])) push("promotion_urgency_invented", sentence);
+    const restriction = norm.match(PT_RESTRICTION_RE);
+    if (restriction && !suppliedByRequest(restriction[0]) && !allowedRestriction(restriction[0])) push("promotion_restriction_invented", sentence);
+    for (const m of norm.matchAll(PT_DATE_RE)) {
+      if (!suppliedByRequest(m[0])) { push("promotion_date_invented", sentence); break; }
+    }
+  }
+  return violations;
+}
+
+/** The offer itself must be stated — a promotion caption/flyer that buries or drops the supplied discount is wrong the other way. */
+export function detectMissingPromotionOffer({ generatedText, promotionFacts = null } = {}) {
+  if (!promotionFacts?.discount) return null;
+  const text = normalizeDiscountWording(generatedText);
+  const d = promotionFacts.discount;
+  const present =
+    d.type === "percent" ? new RegExp(`\\b${d.value}\\s?(?:%|percent)`, "i").test(text)
+    : d.type === "amount" ? new RegExp(`\\$\\s?${Number(d.value)}(?:\\.\\d{2})?\\b`).test(text)
+    : PT_BOGO_RE.test(text);
+  return present ? null : `The supplied offer (${d.text}) does not appear in this copy — state it exactly as given.`;
+}
+
+const PROMOTION_TERM_REASON_TEXT = Object.freeze({
+  promotion_code_invented: (s) => `"${s}" mentions a promo/coupon code, but no code was supplied — never invent one.`,
+  promotion_code_altered: (s) => `"${s}" uses a code that is not the one supplied — use the supplied code exactly or none.`,
+  promotion_checkout_invented: (s) => `"${s}" refers to a checkout, but no online/checkout channel was supplied or verified — drop it.`,
+  promotion_online_ordering_invented: (s) => `"${s}" claims online ordering/a website, which is not supplied or verified for this shop — drop it.`,
+  promotion_discount_altered: (s) => `"${s}" states a discount that is not the supplied offer — state the supplied discount exactly and nothing else.`,
+  promotion_bogo_invented: (s) => `"${s}" adds a buy-one-get-one term that was never supplied — drop it.`,
+  promotion_free_delivery_invented: (s) => `"${s}" promises free delivery, which was never supplied — drop it.`,
+  promotion_urgency_invented: (s) => `"${s}" adds urgency/scarcity terms (today only, while supplies last, limited) that were never supplied — drop them.`,
+  promotion_restriction_invented: (s) => `"${s}" adds a restriction/exclusion/purchase requirement that was never supplied — drop it.`,
+  promotion_delivery_claim_invented: (s) => `"${s}" turns the promotion into a delivery/availability promise that was never supplied — the timing is promotion timing only; drop the delivery/availability claim.`,
+  promotion_date_invented: (s) => `"${s}" names a weekday, date, or expiry the florist never gave — use only the supplied timing.`
+});
+export function promotionTermReasonText(violation) {
+  const fn = PROMOTION_TERM_REASON_TEXT[violation?.code];
+  return fn ? fn(violation.sentence) : `"${violation?.sentence || ""}" contains an unsupported promotion term.`;
+}
+
+/** Removes every sentence carrying an unsupported promotion term (same "cut the sentence" pattern as the other strips). Pure. */
+export function stripUnsupportedPromotionTerms({ generatedText, requestText = "", promotionFacts = null, verifiedCapabilities = null } = {}) {
+  const original = String(generatedText || "");
+  const violations = detectUnsupportedPromotionTerms({ generatedText: original, requestText, promotionFacts, verifiedCapabilities });
+  if (!violations.length) return { text: original, removed: [] };
+  const bad = new Set(violations.map((v) => v.sentence));
+  const kept = sentencesOf(original).filter((s) => !bad.has(s.trim()));
+  return { text: kept.join(" ").replace(/[ \t]{2,}/g, " ").trim(), removed: [...bad] };
+}
+
+/**
+ * Test D, Part 5: the on-image CTA has a hard character contract
+ * (creative direction graphicTextLimits.ctaMaxChars, 30 by default). The
+ * live run persisted a 65-character CTA and the renderer drew it anyway.
+ * This is the deterministic repair: keep the CTA if it fits; else its
+ * first clause if THAT fits; else the shop's real phone as a call CTA when
+ * the concept allows a call; else no CTA at all. Never shrink-to-fit,
+ * never a mid-word cut, never an invented action. Pure.
+ */
+export function fitCtaToLimit(ctaText, maxChars, { shopPhone = null, ctaIntent = null } = {}) {
+  const text = String(ctaText || "").trim();
+  const limit = Number(maxChars);
+  if (!text || !Number.isFinite(limit) || limit <= 0 || text.length <= limit) return text;
+  const clauses = text
+    .split(/\s*(?:[.!?;—–]|,\s|\bor\b|\band\b)\s*/i)
+    .map((c) => c.trim().replace(/[,;:]+$/, ""))
+    .filter((c) => c.length >= 4 && c.length <= limit && c !== text);
+  // The clause carrying a phone number is the one worth keeping ("Need to
+  // place an order? Call 606-506-4039." → "Call 606-506-4039"), else the
+  // first clause that fits.
+  const phoneIn = new RegExp(PHONE_RE.source); // non-global copy: a stateless test
+  const withPhone = clauses.find((c) => phoneIn.test(c));
+  if (withPhone) return withPhone;
+  // The original CTA carried a phone number but no clause fits: keep the
+  // FACT ("Call 606-506-4039"), whatever the intent — that number was in
+  // the wording the florist/notice supplied, never invented here.
+  const originalPhone = text.match(phoneIn);
+  if (originalPhone) {
+    const verbMatch = text.match(/^(call|text|phone|ring)\b/i);
+    const verb = verbMatch ? verbMatch[1].charAt(0).toUpperCase() + verbMatch[1].slice(1).toLowerCase() : "Call";
+    if (`${verb} ${originalPhone[0]}`.length <= limit) return `${verb} ${originalPhone[0]}`;
+  }
+  if (clauses.length) return clauses[0];
+  const phone = shopPhone ? formatStoredPhoneForDisplay(shopPhone) : null;
+  if (phone && (ctaIntent === null || ctaIntent === "call_shop")) {
+    const call = `Call ${phone}`;
+    if (call.length <= limit) return call;
+  }
+  return "";
+}
+
+function titleCaseWords(text) {
+  return String(text || "").replace(/\b([a-z])/g, (m) => m.toUpperCase());
+}
+
+/**
+ * Test D, Part 4: a promotion-specific deterministic rescue built ONLY
+ * from the promotion contract — exact discount, exact product scope,
+ * supplied timing, a supplied code/restrictions verbatim if any — and the
+ * shop's own verified phone as the CTA when the concept allows a call.
+ * Never a code, channel, restriction, date or delivery promise the florist
+ * didn't supply. Headline honours the 42-char headline limit and the CTA
+ * the 30-char CTA limit.
+ */
+export function buildDeterministicPromotionRescueContent({ shopName, shopPhone, ctaIntent = null, promotionFacts, ctaMaxChars = 30, headlineMaxChars = 42 } = {}) {
+  const name = String(shopName || "").trim();
+  const phone = shopPhone ? formatStoredPhoneForDisplay(shopPhone) : null;
+  const d = promotionFacts?.discount || null;
+  const product = promotionFacts?.product || null;
+  const timing = promotionFacts?.timing || null;
+  const offer = d ? [d.text, product].filter(Boolean).join(" ") : (product ? `a special on ${product}` : "a special offer");
+  const withTiming = timing ? `${offer} ${timing}` : offer;
+
+  const fullHeadline = titleCaseWords(withTiming);
+  const shortHeadline = titleCaseWords(offer);
+  const headline = fullHeadline.length <= headlineMaxChars
+    ? fullHeadline
+    : shortHeadline.length <= headlineMaxChars
+      ? shortHeadline
+      : shortHeadline.slice(0, headlineMaxChars + 1).replace(/\s+\S*$/, "").trim();
+
+  let body;
+  if (d && d.type === "bogo") {
+    body = name ? `${name} has ${d.text}${product ? ` on ${product}` : ""}${timing ? ` ${timing}` : ""}.` : `${titleCaseWords(withTiming)}.`;
+  } else if (d) {
+    body = name ? `${name} is taking ${withTiming}.` : `${titleCaseWords(withTiming)}.`;
+  } else {
+    body = name ? `${name} has ${withTiming}.` : `${titleCaseWords(withTiming)}.`;
+  }
+  if (promotionFacts?.promoCode) body += ` Use code ${promotionFacts.promoCode}.`;
+  if (promotionFacts?.restrictions?.length) {
+    body += ` ${promotionFacts.restrictions.map((r) => { const t = r.replace(/[.]+$/, "").trim(); return t.charAt(0).toUpperCase() + t.slice(1); }).join(". ")}.`;
+  }
+
+  const allowCallCta = Boolean(phone) && (ctaIntent === null || ctaIntent === "call_shop");
+  const cta = allowCallCta ? fitCtaToLimit(`Call ${phone}`, ctaMaxChars, { shopPhone, ctaIntent }) : "";
+  const caption = allowCallCta ? `${body} Call ${phone} to order.` : body;
+  return { headline, body, cta, caption, kind: "creative_rescue", promotion: true };
+}
+
 const TEMPORAL_INTENT_WORDS = Object.freeze({
   today: "today",
   tonight: "tonight",
@@ -890,8 +1196,15 @@ export function buildDeterministicCreativeRescueContent({
   occasionCategory = null,
   namedCampaign = null,
   messageIntent = null,
-  userTemporalIntent = null
+  userTemporalIntent = null,
+  promotionFacts = null
 } = {}) {
+  // Test D, Part 4: a real promotion with a structured contract never
+  // falls back to the generic florist wording below — that wording would
+  // silently DROP the offer the florist actually asked to promote.
+  if (promotionFacts && typeof promotionFacts === "object" && (promotionFacts.discount || promotionFacts.product)) {
+    return buildDeterministicPromotionRescueContent({ shopName, shopPhone, ctaIntent, promotionFacts });
+  }
   const name = String(shopName || "").trim();
   const phone = shopPhone ? formatStoredPhoneForDisplay(shopPhone) : null;
 
@@ -2752,7 +3065,12 @@ export function evaluateMarketingOutput({
   creativeScene = null,
   candidate,
   component,
-  isRetryAttempt = false
+  isRetryAttempt = false,
+  // Test D: the on-image text contract (graphicTextLimits) and trusted
+  // shop capabilities — both optional; absent means "no CTA limit check"
+  // and "no verified channels", exactly as before.
+  graphicTextLimits = null,
+  verifiedCapabilities = null
 } = {}) {
   const requestText = String(request || "");
   const verifiedFlowerNames = (inventoryEvidence || []).map((i) => (typeof i === "string" ? i : i?.name)).filter(Boolean);
@@ -2925,7 +3243,12 @@ export function evaluateMarketingOutput({
     reasonCodes.push("invented_operational_content");
   }
 
-  if (canonicalConcept && component === "flyer_text") {
+  // A concept that carries ONLY the promotion contract (a revise_content
+  // call on a legacy asset without a stored concept) has nothing for the
+  // coherence checks to compare against — they stay skipped exactly as
+  // before the contract existed.
+  const conceptHasCoherenceFields = Boolean(canonicalConcept) && Object.keys(canonicalConcept).some((k) => k !== "promotionFacts" && k !== "promotionRequestText");
+  if (conceptHasCoherenceFields && component === "flyer_text") {
     checksRun.push("detectConceptCoherenceMismatch");
     const mismatch = detectConceptCoherenceMismatch({
       concept: canonicalConcept,
@@ -2943,6 +3266,52 @@ export function evaluateMarketingOutput({
     if (ctaMismatch) {
       reasons.push(ctaMismatch);
       reasonCodes.push("cta_coherence_mismatch");
+    }
+  }
+
+  // Test D: promotion fact-integrity, independently for the caption and
+  // the on-image wording — only when the concept carries a promotion
+  // contract (a non-promotion never reaches these checks).
+  const promotionFacts = canonicalConcept?.promotionFacts && typeof canonicalConcept.promotionFacts === "object" ? canonicalConcept.promotionFacts : null;
+  const promotionTermCodes = [];
+  // What the florist SUPPLIED for the promotion: the concept may name the
+  // exact request text (revise_content: brief + instruction) so that an
+  // older, already-approved prior text riding along in `requestText` can
+  // never launder an invented term into a "supplied" one.
+  const promotionRequestText = typeof canonicalConcept?.promotionRequestText === "string" ? canonicalConcept.promotionRequestText : requestText;
+  if (promotionFacts) {
+    checksRun.push("detectUnsupportedPromotionTerms");
+    for (const v of detectUnsupportedPromotionTerms({ generatedText: rawJoined, requestText: promotionRequestText, promotionFacts, verifiedCapabilities })) {
+      reasons.push(promotionTermReasonText(v));
+      reasonCodes.push("unsupported_promotion_term");
+      promotionTermCodes.push(v.code);
+    }
+    checksRun.push("detectMissingPromotionOffer");
+    const missing = detectMissingPromotionOffer({ generatedText: rawJoined, promotionFacts });
+    if (missing) {
+      reasons.push(missing);
+      reasonCodes.push("promotion_offer_missing");
+      promotionTermCodes.push("promotion_offer_missing");
+    }
+  }
+  // Test D, Part 5: the CTA character contract is a rejection reason, not
+  // advice — the retry gets told the real limit, and the deterministic
+  // repair below (fitCtaToLimit) makes the kept draft comply regardless.
+  const ctaMaxChars = Number(graphicTextLimits?.ctaMaxChars);
+  const ctaLimitApplies = component === "flyer_text" && Number.isFinite(ctaMaxChars) && ctaMaxChars > 0;
+  if (ctaLimitApplies) {
+    checksRun.push("checkCtaLength");
+    const ctaLen = String(originalFields.cta || "").trim().length;
+    if (ctaLen > ctaMaxChars) {
+      const ctaReason = `The on-image call-to-action is ${ctaLen} characters; the graphic allows at most ${ctaMaxChars}. Write a shorter CTA — the shop's real phone number to call, or a few words — never a sentence.`;
+      reasons.push(ctaReason);
+      reasonCodes.push("flyer_cta_too_long");
+      // ADVISORY (same contract as ADVISORY_WEAK_COPY_CODES): it earns the
+      // one bounded retry and the deterministic fitCtaToLimit repair below,
+      // but must never on its own push a legitimate exact-facts flyer
+      // (a closing time, a real phone number) into the generic rescue —
+      // that would throw away the very wording the florist supplied.
+      advisoryReasonTexts.add(ctaReason);
     }
   }
 
@@ -2996,6 +3365,22 @@ export function evaluateMarketingOutput({
       repaired = true;
       repairedBySet.add("stripVisualFictionLeakage");
     }
+    if (promotionFacts) {
+      const promoCleaned = stripUnsupportedPromotionTerms({ generatedText: text, requestText: promotionRequestText, promotionFacts, verifiedCapabilities });
+      if (promoCleaned.removed.length) {
+        text = promoCleaned.text;
+        repaired = true;
+        repairedBySet.add("stripUnsupportedPromotionTerms");
+      }
+    }
+    if (key === "cta" && ctaLimitApplies) {
+      const fitted = fitCtaToLimit(text, ctaMaxChars, { shopPhone, ctaIntent: canonicalConcept?.ctaIntent ?? null });
+      if (fitted !== String(text || "").trim()) {
+        text = fitted;
+        repaired = true;
+        repairedBySet.add("fitCtaToLimit");
+      }
+    }
     fields[key] = text;
   }
   const repairedBy = [...repairedBySet];
@@ -3003,12 +3388,12 @@ export function evaluateMarketingOutput({
   const blockingReasons = reasons.filter((r) => !advisoryReasonTexts.has(r));
 
   if (reasons.length) {
-    return { decision: isRetryAttempt ? "reject" : "retry", safeCandidate, repaired, repairedBy, reasons, blockingReasons, reasonCodes, weakCopyReasonCodes, copyProfile, evidenceUsed, checksRun };
+    return { decision: isRetryAttempt ? "reject" : "retry", safeCandidate, repaired, repairedBy, reasons, blockingReasons, reasonCodes, weakCopyReasonCodes, promotionTermCodes, copyProfile, evidenceUsed, checksRun };
   }
   if (repaired) {
-    return { decision: "repair", safeCandidate, repaired: true, repairedBy, reasons: [], blockingReasons: [], reasonCodes: [], weakCopyReasonCodes, copyProfile, evidenceUsed, checksRun };
+    return { decision: "repair", safeCandidate, repaired: true, repairedBy, reasons: [], blockingReasons: [], reasonCodes: [], weakCopyReasonCodes, promotionTermCodes, copyProfile, evidenceUsed, checksRun };
   }
-  return { decision: "pass", safeCandidate: candidate, repaired: false, repairedBy: [], reasons: [], blockingReasons: [], reasonCodes: [], weakCopyReasonCodes, copyProfile, evidenceUsed, checksRun };
+  return { decision: "pass", safeCandidate: candidate, repaired: false, repairedBy: [], reasons: [], blockingReasons: [], reasonCodes: [], weakCopyReasonCodes, promotionTermCodes, copyProfile, evidenceUsed, checksRun };
 }
 
 /**
@@ -3139,6 +3524,8 @@ export function buildCopyEvaluationDiagnostic({ attempt, evalResult, diversityEv
     // distinguish which of detectWeakMarketingCopy's internal checks
     // actually fired.
     weakCopyReasonCodes: evalResult?.weakCopyReasonCodes || [],
+    // Test D: which promotion-term checks fired (codes only).
+    promotionTermCodes: evalResult?.promotionTermCodes || [],
     repairedBy: evalResult?.repairedBy || [],
     diversityDecision: diversityEval?.decision ?? null,
     diversityRepeatedSignals: diversityEval?.repeatedSignals || [],

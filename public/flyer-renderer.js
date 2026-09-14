@@ -1614,6 +1614,24 @@
    * boundary under maxChars with an ellipsis. Returns null for empty
    * input. Pure.
    */
+  /**
+   * Test D, Part 5 — the renderer's final fail-safe for the CTA contract
+   * (graphicTextLimits.ctaMaxChars, 30 by default). Upstream validation
+   * (evaluateMarketingOutput's flyer_cta_too_long + fitCtaToLimit) is the
+   * real fix; this is the last line: if an oversized CTA still arrives,
+   * the renderer NEVER draws it. It is suppressed outright (returns null)
+   * rather than shrunk-to-fit or cut mid-thought — a truncated CTA
+   * ("Order online or call us at…") is a worse customer-facing graphic
+   * than none, the offer already lives in the headline, and the contact
+   * footer still carries the shop's real phone. Pure.
+   */
+  function deriveCtaText(ctaText, maxChars) {
+    var text = String(ctaText || "").trim();
+    if (!text) return null;
+    var ceiling = typeof maxChars === "number" && maxChars > 0 ? maxChars : 30;
+    return text.length <= ceiling ? text : null;
+  }
+
   function deriveSupportingLineText(bodyText, maxChars) {
     var text = String(bodyText || "").trim();
     if (!text) return null;
@@ -2824,7 +2842,11 @@
     // content-generation field carries service-detail text yet, and this
     // renderer never invents wording).
     var depthRoles = HIERARCHY_DEPTH_ROLES[cd.hierarchyDepth] || [];
-    var activeRoles = depthRoles.filter(function (r) { return r !== "serviceDetail" && slots[r]; });
+    // Test D, Part 5: the CTA is gated on its character contract BEFORE
+    // the roles are laid out, so a suppressed CTA frees its slot for the
+    // stack to reflow instead of leaving an empty reserved rect.
+    var ctaText = deriveCtaText(content.cta, cd.graphicTextLimits && cd.graphicTextLimits.ctaMaxChars);
+    var activeRoles = depthRoles.filter(function (r) { return r !== "serviceDetail" && slots[r] && !(r === "cta" && !ctaText); });
 
     // Part F: a mandatory headline that is genuinely impossible to fit,
     // even at the legibility floor, fails the render rather than paints
@@ -3060,8 +3082,10 @@
 
         // CTA — the existing, unmodified drawCtaLabel/computeCtaLayout,
         // gated on the hard contract exactly like every other role.
-        if (activeRoles.indexOf("cta") !== -1 && roleRects.cta && content.cta) {
-          drawCtaLabel(targetCtx, roleRects.cta, content.cta, ornamentColors.accent, styleFor(roleRects.cta), roleRects.cta.h, onPanel ? null : background, bandsSink);
+        // Test D, Part 5: ctaText was gated on its character contract above
+        // (deriveCtaText) — the last line of defence.
+        if (activeRoles.indexOf("cta") !== -1 && roleRects.cta && ctaText) {
+          drawCtaLabel(targetCtx, roleRects.cta, ctaText, ornamentColors.accent, styleFor(roleRects.cta), roleRects.cta.h, onPanel ? null : background, bandsSink);
           localDrawn.push("cta");
         }
 
@@ -3072,8 +3096,8 @@
         // still applies underneath this gate (never repeats a number the
         // CTA already shows).
         if (slots.phone) {
-          drawContact(targetCtx, contactRect, brand, styleFor(contactRect), content.cta, onPanel ? null : background, ornamentColors.accent, bandsSink);
-          if (contactLineParts(brand, content.cta).length) localDrawn.push("contact");
+          drawContact(targetCtx, contactRect, brand, styleFor(contactRect), ctaText, onPanel ? null : background, ornamentColors.accent, bandsSink);
+          if (contactLineParts(brand, ctaText).length) localDrawn.push("contact");
         }
         return localDrawn;
       }
@@ -3408,6 +3432,7 @@
     TYPOGRAPHY_PERSONAS: TYPOGRAPHY_PERSONAS,
     resolveScriptAccentPlan: resolveScriptAccentPlan,
     deriveSupportingLineText: deriveSupportingLineText,
+    deriveCtaText: deriveCtaText,
     resolveOrnamentColors: resolveOrnamentColors,
     resolveSeason: resolveSeason,
     SEASON_PALETTES: SEASON_PALETTES,

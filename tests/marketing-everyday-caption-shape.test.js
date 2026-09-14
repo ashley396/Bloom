@@ -309,7 +309,7 @@ test("prompt shape: send_flowers and brighten_day get the SHAPE rule + the two-o
   assert.match(generalTask, /- LENGTH: three or four short sentences for the body, then stop\./);
   assert.equal(buildSocialPostPromptContext({ messageIntent: "general_everyday" }).everydayShapeRuleIncluded, false);
   assert.equal(lengthRuleLine(undefined), lengthRuleLine("general_everyday"));
-  assert.equal(COPY_GUIDANCE_VERSION, "2026-09-11.v3");
+  assert.equal(COPY_GUIDANCE_VERSION, "2026-09-14.v4");
 });
 
 // ---------------------------------------------------------------------------

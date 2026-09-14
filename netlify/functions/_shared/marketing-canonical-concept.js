@@ -33,7 +33,7 @@
  */
 
 import { SOCIAL_POST_OBJECTIVES } from "./ai-creative-engine.js";
-import { BEREAVEMENT_CONTEXT_RE, requestSignalsRealPromotion, requestSignalsIntentionalInventoryUse, sentencesOf } from "./marketing-content-revision.js";
+import { BEREAVEMENT_CONTEXT_RE, requestSignalsRealPromotion, requestSignalsIntentionalInventoryUse, sentencesOf, normalizeDiscountWording } from "./marketing-content-revision.js";
 
 export const CANONICAL_CONCEPT_VERSION = 1;
 
@@ -441,6 +441,123 @@ export function classifyMessageIntent({ requestText = "", audience = null, isSym
   return "general_everyday";
 }
 
+// ---------------------------------------------------------------------------
+// Test D ("promotion fact-integrity", 2026-09-14): a FIRST-CLASS promotion
+// contract. The live failure: "Create a cute Facebook post for 20% off
+// bouquets this weekend." came back with an invented coupon code
+// (BLOOM20), an invented "at checkout" redemption and an invented "order
+// online" channel — none supplied — and every generic fact-safety detector
+// passed it, because none of them models a promotion's commercial terms.
+//
+// This classifier derives the contract ONLY from the florist's own request
+// (plus, optionally, TRUSTED shop capabilities a caller passes in — never
+// guessed). Everything not supplied is null/empty, and null means "do not
+// invent": generation coaching, the evaluator, and the deterministic
+// rescue all read this same object. Pure. Never shop-specific.
+// ---------------------------------------------------------------------------
+export const PROMOTION_FACTS_VERSION = 1;
+
+const PROMO_PERCENT_RE = /\b(\d{1,3})\s?(?:%|percent)\s*off\b/i;
+const PROMO_AMOUNT_RE = /\$\s?(\d+(?:\.\d{2})?)\s*off\b/i;
+const PROMO_BOGO_RE = /\b(?:bogo|buy\s+one,?\s+get\s+one(?:\s+free)?|b1g1|two\s+for\s+(?:one|1)|2\s+for\s+1)\b/i;
+// Case-sensitive on purpose: a real code is written in caps ("BLOOM20"),
+// and a lowercase "code" in prose ("a code word") must never become one.
+// A supplied code as the florist typed it (any case, hyphens allowed) —
+// but only a token that looks like a code: it carries a digit, or it is
+// written in caps. Prose after the word "code" ("our code word is
+// kindness") never becomes one.
+const PROMO_CODE_RE = /\b(?:[Pp]romo\s*[Cc]ode|[Cc]oupon\s*[Cc]ode|[Dd]iscount\s*[Cc]ode|[Cc]ode|CODE|[Cc]oupon|COUPON)\s*[:#]?\s*(?=[A-Za-z0-9-]*\d|[A-Z0-9-]{3,}\b)([A-Za-z][A-Za-z0-9-]{2,19})\b/;
+const DAY_RE_SRC = "(?:mon|tues|wednes|thurs|fri|satur|sun)day(?:\\s+\\d{1,2}\\/\\d{1,2}(?:\\/\\d{2,4})?)?";
+const PROMO_TIMING_RE = new RegExp(
+  "\\b(" +
+    [
+      // Ranges first (longest match wins): "Friday 9/19 through Sunday 9/21", "Saturday and Sunday".
+      `(?:this\\s+|next\\s+)?${DAY_RE_SRC}\\s*(?:through|thru|to|-|–|&|and)\\s*(?:this\\s+|next\\s+)?${DAY_RE_SRC}`,
+      `(?:through|thru|until|till)\\s+(?:the\\s+)?(?:end\\s+of\\s+(?:the\\s+)?(?:month|week|year|weekend|season)|weekend|month|week|tomorrow|tonight|${DAY_RE_SRC}|(?:jan|feb|mar|apr|may|jun|jul|aug|sept?|oct|nov|dec)[a-z]*\\.?\\s+\\d{1,2}(?:st|nd|rd|th)?|\\d{1,2}\\/\\d{1,2}(?:\\/\\d{2,4})?|[a-z]+(?:'s)?\\s+day)`,
+      "this\\s+weekend", "this\\s+week", "today", "tonight", "tomorrow",
+      `(?:this|next)\\s+${DAY_RE_SRC}`,
+      `${DAY_RE_SRC}(?:\\s+only)?`,
+      "all\\s+(?:week|month|weekend)(?:\\s+long)?",
+      "\\d{1,2}\\/\\d{1,2}(?:\\/\\d{2,4})?(?!\\s*(?:dozen|off|price|%|-))"
+    ].join("|") +
+    ")\\b",
+  "i"
+);
+const PRODUCT_STOP = "this|today|tonight|tomorrow|through|thru|until|till|on|at|for|with|when|in|online|over|under|above|only|next|all|instead|now|again|too|please|to|if|who|anyone|everyone|you|your|that|which|per|from|by|during|while|because|so|but|as|starting|storewide|sitewide|(?:mon|tues|wednes|thurs|fri|satur|sun)days?|weekends?|—|-";
+const PROMO_PRODUCT_RE = new RegExp(
+  `\\boff\\s+(?:on\\s+)?(?:all\\s+|any\\s+|every\\s+|our\\s+|select\\s+)?(?!(?:${PRODUCT_STOP})\\b)([a-z][a-z' &-]{1,40}?)(?=\\s+(?:${PRODUCT_STOP})\\b|[.!?,;:]|\\s*$)`,
+  "i"
+);
+// "buy one get one free on bouquets" — a BOGO names its product after "on".
+const PROMO_PRODUCT_BOGO_RE = new RegExp(
+  `\\b(?:bogo|buy\\s+one,?\\s+get\\s+one(?:\\s+free)?|b1g1|two\\s+for\\s+(?:one|1))\\s+(?:on\\s+)?(?:all\\s+|any\\s+|every\\s+|our\\s+|select\\s+)?(?!(?:${PRODUCT_STOP})\\b)([a-z][a-z' &-]{1,40}?)(?=\\s+(?:${PRODUCT_STOP})\\b|[.!?,;:]|\\s*$)`,
+  "i"
+);
+// "bouquets are 20% off this weekend" — the product comes BEFORE the offer.
+const PROMO_PRODUCT_BEFORE_RE = /\b(?:all\s+|any\s+|every\s+|our\s+)?([a-z][a-z' &-]{1,40}?)\s+(?:are|is)\s+(?:now\s+)?\d{1,3}\s?%\s*off\b/i;
+const PROMO_CHANNEL_RULES = Object.freeze([
+  { re: /\b(?:order|shop|buy|redeem|book)\s+online\b|\bonline\s+(?:orders?|ordering|only|store|shop|checkout)\b|\bon\s+our\s+(?:site|website|app)\b|\bour\s+(?:website|app)\b|\bvia\s+(?:our\s+|the\s+)?app\b|\blink\s+in\s+(?:our\s+)?bio\b|\bthrough\s+(?:instagram|facebook|dms?|messenger|our\s+page)\b|\bdm\s+us\b|https?:\/\/|\bwww\.|\b[a-z0-9-]+\.(?:com|net|org|shop|co|us|florist)\b/i, channel: "online" },
+  { re: /\bin[- ]store\b|\bin\s+the\s+shop\b|\bstop\s+by\b|\bwalk[- ]ins?\b/i, channel: "in_store" },
+  { re: /\bcall\s+(?:us|the\s+shop)\b|\bby\s+phone\b|\bphone\s+orders?\b/i, channel: "phone" }
+]);
+const PROMO_RESTRICTION_RE =
+  /\b(?:exclud\w+[^.,;]*|minimum\s+(?:purchase|order|spend)[^.,;]*|while\s+supplies\s+last|while\s+stocks?\s+last|limited\s+(?:quantit\w+|time|stock)|in[- ]store\s+only|online\s+only|one\s+per\s+customer|cannot\s+be\s+combined[^.,;]*|not\s+valid[^.,;]*|some\s+exclusions\s+apply|terms\s+apply|select\s+(?:items|styles|bouquets)|regular[- ]priced?\s+items?|free\s+(?:delivery|shipping))\b/gi;
+
+/**
+ * The promotion contract for a request, or null when the request is not a
+ * real promotion at all. Only what the florist SUPPLIED (or a caller's
+ * trusted, verified capability) is ever non-null.
+ *
+ * Shape: { version, discount: { type: "percent"|"amount"|"bogo", value,
+ * text } | null, product, timing, promoCode, redemptionChannel,
+ * restrictions: string[] }.
+ */
+export function classifyPromotionFacts({ requestText = "", promotionIntent = null, verifiedCapabilities = null } = {}) {
+  // Worded discounts ("twenty percent off", "half off", "save $5") are
+  // normalized to digits first, so the contract carries the real value.
+  const request = normalizeDiscountWording(String(requestText || ""));
+  const isPromotion = promotionIntent != null ? promotionIntent === "real_promotion" : requestSignalsRealPromotion(request);
+  if (!isPromotion) return null;
+
+  let discount = null;
+  const pct = request.match(PROMO_PERCENT_RE);
+  const amt = request.match(PROMO_AMOUNT_RE);
+  const bogo = request.match(PROMO_BOGO_RE);
+  if (pct) discount = { type: "percent", value: pct[1], text: `${pct[1]}% off` };
+  else if (amt) discount = { type: "amount", value: amt[1], text: `$${amt[1]} off` };
+  else if (bogo) discount = { type: "bogo", value: null, text: bogo[0].toLowerCase() };
+
+  const productMatch = request.match(PROMO_PRODUCT_RE) || request.match(PROMO_PRODUCT_BEFORE_RE) || request.match(PROMO_PRODUCT_BOGO_RE);
+  const product = productMatch ? productMatch[1].trim().toLowerCase() : null;
+  const discountIndex = pct ? pct.index : amt ? amt.index : bogo ? bogo.index : -1;
+  const afterDiscount = discountIndex >= 0 ? request.slice(discountIndex) : "";
+  const timingMatch = afterDiscount.match(PROMO_TIMING_RE) || request.match(PROMO_TIMING_RE);
+  const timing = timingMatch ? timingMatch[1].replace(/\s+/g, " ").toLowerCase() : null;
+  // A dollar condition the florist stated ("any bouquet over $40") is a
+  // supplied restriction, never lost.
+  const overMatch = request.match(/\b(?:orders?\s+)?(?:over|above|of)\s+\$\s?\d+(?:\.\d{2})?\b/i);
+  const codeMatch = request.match(PROMO_CODE_RE);
+  const promoCode = codeMatch ? codeMatch[1] : null;
+
+  let redemptionChannel = null;
+  for (const rule of PROMO_CHANNEL_RULES) {
+    if (rule.re.test(request)) { redemptionChannel = rule.channel; break; }
+  }
+  // A trusted capability (never the model's guess, never the request's
+  // own wording) may establish an online channel — the only way "order
+  // online" ever becomes legal without the florist saying it.
+  if (!redemptionChannel && verifiedCapabilities?.onlineOrdering === true) redemptionChannel = "online";
+
+  const restrictions = [];
+  for (const m of request.matchAll(PROMO_RESTRICTION_RE)) {
+    const phrase = m[0].trim().replace(/\s+/g, " ");
+    if (phrase && !restrictions.includes(phrase)) restrictions.push(phrase);
+  }
+  if (overMatch && !restrictions.some((r) => r.toLowerCase().includes(overMatch[0].toLowerCase()))) restrictions.push(overMatch[0].trim());
+
+  return { version: PROMOTION_FACTS_VERSION, discount, product, timing, promoCode, redemptionChannel, restrictions };
+}
+
 export const USER_TEMPORAL_INTENTS = Object.freeze(["today", "tonight", "tomorrow", "this_weekend"]);
 
 const USER_TEMPORAL_INTENT_RULES = [
@@ -841,7 +958,11 @@ export function buildCanonicalConcept({
     platform: platform || null,
     sympathyClassification,
     inventoryIntent: inventoryDriven ? "inventory_driven" : "not_inventory_driven",
-    promotionIntent
+    promotionIntent,
+    // Test D: the structured promotion contract (null for a non-promotion).
+    // Deliberately NOT an identity field — a wording revision must not be
+    // treated as concept drift because a promo code was supplied later.
+    promotionFacts: classifyPromotionFacts({ requestText, promotionIntent })
   };
 }
 
