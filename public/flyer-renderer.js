@@ -1565,6 +1565,35 @@
    * different, not a cosmetic nudge (Part E's explicit requirement). */
   var HEADLINE_SCALE_MULTIPLIER = { standard: 1, large: 1.16, oversized: 1.34 };
 
+  /** Test D renderer layout fix (live asset 701b449e, 2026-09-15): the
+   * bounded height every NON-headline stack role may occupy, as a
+   * fraction of the canvas height. splitStackIntoRoles divides the stack
+   * by weight, which is right when two or three roles share it — but a
+   * lone role (banner_led + headline_plus_support with no CTA, or a CTA
+   * suppressed by its 30-character fail-safe) inherited the ENTIRE stack
+   * (680px of a 1080px canvas), and drawTypographyRole then sized the
+   * supporting line from that height: a 204px start, a 153px floor, seven
+   * wrapped lines and a 1235px block painted straight through the
+   * headline ribbon and off the bottom edge, with a canvas-sized band
+   * behind it. Subordinate text never earns display-size type just because
+   * nothing else is in the stack. The headline is deliberately NOT capped
+   * here: it is the mandatory hero role and keeps its existing sizing.
+   * Values are chosen so every family whose stack already allotted less
+   * than the cap (hero_full_bleed's lower band, framed_panel's dedicated
+   * panel) computes byte-identical rects — only a tall stack is bounded.
+   * NARROW_STACK_CAP_MULTIPLIER widens the allowance for a genuinely
+   * narrow column (layered_editorial's side panel, under half the canvas
+   * width), where the same text needs more lines, not more type size. */
+  var ROLE_STACK_CAPS = { supportingLine: 0.17, serviceDetail: 0.13, cta: 0.16 };
+  var NARROW_STACK_CAP_MULTIPLIER = 1.5;
+  /** The supporting line's own independent type ceiling, as a fraction of
+   * the canvas height (54px on a 1080px post — the legacy path's own body
+   * lines sit around 40px there, and this stays comfortably readable at
+   * feed width); additionally held below the headline's nominal size by
+   * SUPPORTING_LINE_HEADLINE_RATIO so it always reads as subordinate. */
+  var SUPPORTING_LINE_MAX_FONT_RATIO = 0.05;
+  var SUPPORTING_LINE_HEADLINE_RATIO = 0.9;
+
   /** typographyPersonality's real font stacks. No new webfont is fetched
    * anywhere in this module (no network/provider call) — every family
    * below is either already loaded by this app ('Crimson Pro' serif,
@@ -2307,7 +2336,7 @@
    * Divides one stack rect into the active roles' own sub-rects,
    * headline first and always largest (headlineScale weights it
    * further), in the exact order Part E's hierarchy commits to. Pure. */
-  function splitStackIntoRoles(stackRect, activeRoles, headlineScaleKey, includeHeadline) {
+  function splitStackIntoRoles(stackRect, activeRoles, headlineScaleKey, includeHeadline, opts) {
     var weights = { headline: 1 * (HEADLINE_SCALE_MULTIPLIER[headlineScaleKey] || 1), supportingLine: 0.46, serviceDetail: 0.4, cta: 0.52 };
     // A confirmed defect: when the headline actually renders on a
     // separate banner shape (banner_led, or textRegion "banner") rather
@@ -2321,11 +2350,29 @@
     for (var i = 0; i < order.length; i++) total += weights[order[i]] || 0.4;
     var gap = stackRect.h * 0.035;
     var usableH = stackRect.h - gap * (order.length - 1);
+    // Test D renderer layout fix: with `opts.canvasHeight` supplied, every
+    // non-headline role's share is bounded by ROLE_STACK_CAPS (see that
+    // constant), so a lone role never inherits the whole stack. Roles are
+    // packed from the stack's top exactly as before — the headline (or the
+    // banner above the stack) stays adjacent, and any height a cap frees
+    // is left as negative space over the photo, never handed to another
+    // role. Callers that pass no opts get the original, uncapped split.
+    var canvasH = opts && Number(opts.canvasHeight) > 0 ? Number(opts.canvasHeight) : null;
+    var canvasW = opts && Number(opts.canvasWidth) > 0 ? Number(opts.canvasWidth) : null;
+    // A narrow column earns proportionally more height (the same text needs
+    // more lines there), ramping continuously from 1x at half the canvas
+    // width up to NARROW_STACK_CAP_MULTIPLIER — never a cliff where a
+    // slightly wider column suddenly gets less room (independent review).
+    var narrowBoost = canvasW ? Math.max(1, Math.min(NARROW_STACK_CAP_MULTIPLIER, (canvasW * 0.5) / Math.max(1, stackRect.w))) : 1;
     var rects = {};
     var y = stackRect.y;
     for (var j = 0; j < order.length; j++) {
       var role = order[j];
       var h = usableH * ((weights[role] || 0.4) / total);
+      if (canvasH && ROLE_STACK_CAPS[role]) {
+        var cap = canvasH * ROLE_STACK_CAPS[role] * narrowBoost;
+        if (h > cap) h = cap;
+      }
       rects[role] = { x: stackRect.x, y: y, w: stackRect.w, h: h };
       y += h + gap;
     }
@@ -2692,6 +2739,11 @@
     // shrinks, because the floor itself was derived from the oversized
     // starting point rather than from the real available width.
     var baseSize = Math.min(rect.h * (roleOpts.baseSizeRatio || 0.36), rect.w * 0.42);
+    // Test D renderer layout fix: a role may carry its own independent
+    // type ceiling (the supporting line's SUPPORTING_LINE_MAX_FONT_RATIO /
+    // headline-relative cap) — applied BEFORE the floor is derived, so the
+    // floor can never sit above the ceiling.
+    if (Number(roleOpts.maxFontSize) > 0) baseSize = Math.min(baseSize, Number(roleOpts.maxFontSize));
     var minFont = Math.max(16, Math.min(baseSize * (roleOpts.minFontRatio || 0.7), rect.w * 0.22));
     var fontSize = baseSize;
     var maxTextWidth = rect.w * 0.94;
@@ -2733,6 +2785,22 @@
       var fitsWidth = widestLine <= maxTextWidth * 1.02;
       if ((fitsHeight && fitsWidth) || fontSize <= minFont) break;
       fontSize = Math.round(fontSize * 0.85);
+    }
+    // Test D renderer layout fix: an OPTIONAL role (the supporting line)
+    // that still does not fit its bounded rect at the legibility floor
+    // fails closed — nothing is drawn, the role is reported undrawn — the
+    // same discipline the mandatory headline already has (Part F rejects
+    // the render), rather than painting a block that spills into the
+    // headline, the footer, or off the canvas. Deterministic: both the
+    // measuring pass and the real pass make the identical decision.
+    // The fit loop above aims for a 4-6% comfort margin inside the rect;
+    // failing closed is judged against the rect's TRUE edges, so a block
+    // that lands a few px inside the margin still draws (independent
+    // review: the stricter test silently dropped narrow-column supporting
+    // lines that fit their rect perfectly well).
+    if (roleOpts.failClosed && (blockHeight > rect.h || widestLine > rect.w)) {
+      ctx.restore();
+      return { drew: false, bannered: false, overflow: true, fontSize: fontSize };
     }
     var bannered = false;
     if (background) {
@@ -2852,7 +2920,8 @@
     // even at the legibility floor, fails the render rather than paints
     // overlapping/broken text.
     var headlineRoleRectForCheck = geo.stack || geo.banner || { x: 0, y: 0, w: width, h: height * 0.2 };
-    if (isRoleImpossibleToFit(content.headline, splitStackIntoRoles(headlineRoleRectForCheck, activeRoles, cd.headlineScale).headline, 18)) {
+    var stackCaps = { canvasWidth: width, canvasHeight: height };
+    if (isRoleImpossibleToFit(content.headline, splitStackIntoRoles(headlineRoleRectForCheck, activeRoles, cd.headlineScale, undefined, stackCaps).headline, 18)) {
       return Promise.reject(new Error("This headline cannot be rendered legibly in the space Creative Direction allocated for it — nothing was drawn."));
     }
 
@@ -2978,7 +3047,7 @@
       // there (a confirmed defect: it was starving supportingLine/cta to
       // roughly half their intended size).
       var headlineOnBanner = Boolean(geo.banner) && (cd.compositionFamily === "banner_led" || cd.textRegion === "banner");
-      var roleRects = splitStackIntoRoles(geo.stack || headlineRoleRectForCheck, activeRoles, cd.headlineScale, !headlineOnBanner);
+      var roleRects = splitStackIntoRoles(geo.stack || headlineRoleRectForCheck, activeRoles, cd.headlineScale, !headlineOnBanner, stackCaps);
       var drawnRoles = [];
 
       function styleFor(rect) {
@@ -2986,6 +3055,18 @@
       }
 
       var headlineRect = headlineOnBanner ? geo.banner : roleRects.headline;
+      // Test D renderer layout fix: the supporting line's type ceiling —
+      // the smaller of its own canvas-relative maximum and a fixed
+      // fraction of the headline's ACTUAL drawn size (captured from
+      // whichever headline branch ran, inside layOutText below; the
+      // nominal size is only the fallback when no headline was drawn) —
+      // so it always reads as subordinate. A ribbon headline that had to
+      // shrink to fit its banner must still out-size its supporting line.
+      var headlineNominalFont = Math.min(headlineRect.h * 0.36 * (HEADLINE_SCALE_MULTIPLIER[cd.headlineScale] || 1), headlineRect.w * 0.42);
+      function supportingFontCapFor(headlineDrawnFont) {
+        var reference = headlineDrawnFont > 0 ? headlineDrawnFont : headlineNominalFont;
+        return Math.min(height * SUPPORTING_LINE_MAX_FONT_RATIO, reference * SUPPORTING_LINE_HEADLINE_RATIO);
+      }
       var headlineStyle = geo.banner === headlineRect ? { color: BAND_TEXT_COLOR, softColor: BAND_TEXT_COLOR_SOFT, outline: null } : styleFor(headlineRect);
       var scriptPlan = resolveScriptAccentPlan(cd.scriptAccentUsage, content.headline, isOperationalNotice);
       var headlineFamily = typography.headline;
@@ -2998,6 +3079,12 @@
       var safeForScriptTreatment = onPanel || headlineRect === geo.banner;
 
       var contactRect = { x: Math.round(width * 0.06), y: Math.round(height * 0.93), w: Math.round(width * 0.88), h: Math.round(height * 0.05) };
+      // A genuinely narrow column (layered_editorial's side panel, under
+      // half the canvas width) lets the supporting line's floor drop a
+      // little further (0.6x of its ceiling instead of 0.75x) before it
+      // fails closed — more lines at a smaller size is the honest shape
+      // there. Wide stacks keep the 0.75x floor.
+      var narrowStack = Boolean(geo.stack) && geo.stack.w < width * 0.5;
       var supportingText = activeRoles.indexOf("supportingLine") !== -1 && roleRects.supportingLine
         ? deriveSupportingLineText(content.body, cd.graphicTextLimits && cd.graphicTextLimits.supportingLineMaxChars)
         : null;
@@ -3017,6 +3104,7 @@
       // needs is already underneath it.
       function layOutText(targetCtx, bandsSink) {
         var localDrawn = [];
+        var headlineDrawnFont = 0;
         // Batch 6 renderer-gating fix (live-found defect: a
         // photo_forward_social flyer with graphicTextSlots.headline
         // false still rendered a full headline banner). Headline was
@@ -3037,7 +3125,7 @@
               baseSizeRatio: 0.34 * (HEADLINE_SCALE_MULTIPLIER[cd.headlineScale] || 1),
               italic: true
             });
-            if (full.drew) localDrawn.push("headline");
+            if (full.drew) { localDrawn.push("headline"); headlineDrawnFont = full.fontSize || 0; }
           } else if (typography.script && scriptPlan.mode === "accent_word" && safeForScriptTreatment && scriptPlan.accentWord) {
             var accentResult = drawHeadlineWithAccentWord(
               targetCtx, headlineRect, content.headline, scriptPlan.accentWord,
@@ -3050,11 +3138,14 @@
               // plain wrapped render for THIS pass only (deterministic:
               // both passes make the identical choice since nothing
               // between them changes the measurement).
-              drawTypographyRole(targetCtx, headlineRect, content.headline, {
+              var accentFallback = drawTypographyRole(targetCtx, headlineRect, content.headline, {
                 family: headlineFamily, weight: typography.headlineWeight, textStyle: headlineStyle,
                 background: headlineRect === geo.banner ? null : background, bands: bandsSink,
                 baseSizeRatio: 0.36 * (HEADLINE_SCALE_MULTIPLIER[cd.headlineScale] || 1)
               });
+              headlineDrawnFont = accentFallback.fontSize || 0;
+            } else {
+              headlineDrawnFont = accentResult.fontSize || 0;
             }
           } else {
             var hResult = drawTypographyRole(targetCtx, headlineRect, content.headline, {
@@ -3062,7 +3153,7 @@
               background: headlineRect === geo.banner ? null : background, bands: bandsSink,
               baseSizeRatio: 0.36 * (HEADLINE_SCALE_MULTIPLIER[cd.headlineScale] || 1)
             });
-            if (hResult.drew) localDrawn.push("headline");
+            if (hResult.drew) { localDrawn.push("headline"); headlineDrawnFont = hResult.fontSize || 0; }
           }
         }
 
@@ -3074,8 +3165,11 @@
           var supportWeight = supportFamily === typography.script ? "400" : typography.bodyWeight;
           var sResult = drawTypographyRole(targetCtx, roleRects.supportingLine, supportingText, {
             family: supportFamily, weight: supportWeight, textStyle: styleFor(roleRects.supportingLine),
-            background: onPanel ? null : background, bands: bandsSink, baseSizeRatio: 0.3, minFontRatio: 0.75,
-            italic: supportFamily === typography.script
+            background: onPanel ? null : background, bands: bandsSink, baseSizeRatio: 0.3, minFontRatio: narrowStack ? 0.6 : 0.75,
+            italic: supportFamily === typography.script,
+            // Test D renderer layout fix: bounded type, and fail closed
+            // rather than draw a block that cannot fit its rect.
+            maxFontSize: supportingFontCapFor(headlineDrawnFont), failClosed: true
           });
           if (sResult.drew) localDrawn.push("supportingLine");
         }
@@ -3107,6 +3201,10 @@
       var merged = mergeBands(wantedBands, height * 0.004);
       for (var mi = 0; mi < merged.length; mi++) drawBanner(ctx, merged[mi], ornamentColors.primary);
       drawnRoles = layOutText(ctx, null);
+      // Test D renderer layout fix: a role the Creative Direction contracted
+      // (slot on, in the hierarchy) that fails closed is reported, never
+      // silently omitted — stamped beside drawnRoles below.
+      var undrawnRoles = (slots.headline ? ["headline"] : []).concat(activeRoles).filter(function (r) { return drawnRoles.indexOf(r) === -1; });
 
       // Branding (Part H). drawBrandIdentity now runs its own internal
       // measure/paint pass (see its own docstring) whenever the lockup
@@ -3148,6 +3246,7 @@
           canvas.dataset.florisynCompositionFamily = cd.compositionFamily || "";
           canvas.dataset.florisynTextRegion = cd.textRegion || "";
           canvas.dataset.florisynDrawnRoles = drawnRoles.join(",");
+          canvas.dataset.florisynUndrawnRoles = undrawnRoles.join(",");
         }
         return canvas;
       });
@@ -3429,6 +3528,11 @@
     // Phase 2 — Creative Direction execution.
     HIERARCHY_DEPTH_ROLES: HIERARCHY_DEPTH_ROLES,
     HEADLINE_SCALE_MULTIPLIER: HEADLINE_SCALE_MULTIPLIER,
+    ROLE_STACK_CAPS: ROLE_STACK_CAPS,
+    NARROW_STACK_CAP_MULTIPLIER: NARROW_STACK_CAP_MULTIPLIER,
+    SUPPORTING_LINE_MAX_FONT_RATIO: SUPPORTING_LINE_MAX_FONT_RATIO,
+    SUPPORTING_LINE_HEADLINE_RATIO: SUPPORTING_LINE_HEADLINE_RATIO,
+    drawTypographyRole: drawTypographyRole,
     TYPOGRAPHY_PERSONAS: TYPOGRAPHY_PERSONAS,
     resolveScriptAccentPlan: resolveScriptAccentPlan,
     deriveSupportingLineText: deriveSupportingLineText,
