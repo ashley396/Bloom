@@ -1188,6 +1188,218 @@ const TEMPORAL_INTENT_WORDS = Object.freeze({
   this_weekend: "this weekend"
 });
 
+// ---------------------------------------------------------------------------
+// Test E ("event-reminder fact preservation", 2026-09-15). The structured
+// event contract (marketing-canonical-concept.js classifyEventFacts) is
+// compared against generated wording in both directions: the core supplied
+// facts must SURVIVE (detectMissingEventFacts) and nothing the florist did
+// not supply may be ADDED (detectUnsupportedEventClaims). Event-general:
+// every rule reads the contract's own event/audience/products, never a
+// campaign-specific string.
+// ---------------------------------------------------------------------------
+
+export const EVENT_FACT_CODES = Object.freeze([
+  "event_name_missing",
+  "event_action_missing",
+  "event_product_missing",
+  "event_audience_missing",
+  "event_deadline_missing",
+  "event_date_missing",
+  "event_date_invented",
+  "event_deadline_invented",
+  "event_school_invented",
+  "event_pricing_invented",
+  "event_discount_invented",
+  "event_scarcity_invented",
+  "event_fulfillment_invented",
+  "event_online_ordering_invented"
+]);
+
+const EVC_DATE_RE = /\b(?:(?:jan|feb|mar|apr|may|jun|jul|aug|sept?|oct|nov|dec)[a-z]*\.?\s+\d{1,2}(?:st|nd|rd|th)?\b|\b\d{1,2}\/\d{1,2}(?:\/\d{2,4})?\b|\b(?:this|next)\s+(?:mon|tues|wednes|thurs|fri|satur|sun)day\b|\b(?:mon|tues|wednes|thurs|fri|satur|sun)day\b|\bnext\s+(?:week|weekend|month)\b|\bexpires?\b|\bvalid\s+(?:through|thru|until|till)\b)/i;
+const EVC_DEADLINE_RE = new RegExp("\\b(?:pre-?order|order|reserve|book)\\w*\\b[^.;!?]{0,80}?\\b((?:by|before|no\\s+later\\s+than)\\s+(?:(?:this|next)\\s+)?(?:(?:the\\s+)?end\\s+of\\s+(?:the|this)\\s+(?:week|month)|(?:mon|tues|wednes|thurs|fri|satur|sun)day(?:,?\\s+(?:jan|feb|mar|apr|may|jun|jul|aug|sept?|oct|nov|dec)[a-z]*\\.?\\s+\\d{1,2}(?:st|nd|rd|th)?)?|(?:jan|feb|mar|apr|may|jun|jul|aug|sept?|oct|nov|dec)[a-z]*\\.?\\s+\\d{1,2}(?:st|nd|rd|th)?|the\\s+\\d{1,2}(?:st|nd|rd|th)?|\\d{1,2}(?:\\/\\d{1,2}(?:\\/\\d{2,4})?|:\\d{2}\\s?(?:am|pm)?|\\s?(?:am|pm))|noon|midnight|tomorrow|tonight|the\\s+(?:weekend|dance|game)))|\\b(deadline\\b[^.,;!?]{0,40}|last\\s+(?:day|chance)\\s+to\\s+(?:order|reserve|book)\\b[^.,;!?]{0,40}|orders?\\s+(?:close|closes|are\\s+due|due)\\b[^.,;!?]{0,30}|cut-?off\\b[^.,;!?]{0,30})|\\bbefore\\s+(?:it'?s\\s+too\\s+late|they'?re\\s+gone)\\b|\\bonly\\s+a\\s+few\\s+days\\s+left\\b|\\btime\\s+is\\s+running\\s+out\\b", "i");
+const EVC_SCHOOL_RE = /\b[A-Z][\w'&.-]*(?:\s+[A-Z][\w'&.-]*){0,3}\s+(?:High School|Middle School|Academy|Prep|HS|High)\b|\b(?:[Gg]o|[Pp]roud)\s+[A-Z][a-z]+s\b|\b(?:at|for|from)\s+[A-Z]{3,5}\b/;
+const EVC_PRICING_RE = /\$\s?\d+(?:\.\d{2})?|\bstarting\s+at\b|\bprices?\s+(?:start|from)\b|\bjust\s+\$/i;
+const EVC_DISCOUNT_RE = /\b\d{1,3}\s?%\s*off\b|\bdiscount\b|\bsale\b|\bspecial\s+(?:offer|pricing|price)\b|\bpromo\s*code\b|\bcoupon\b|\b(?:two|2)\s+for\s+(?:one|1)\b|\bbundle\b|\bdeals?\b/i;
+const EVC_SCARCITY_RE = /\blimited\s+(?:quantit\w+|supply|supplies|stock|number|availability|time)\b|\b(?:quantities|supplies|stock|spots|slots|availability)\s+(?:are|is)\s+limited\b|\bwhile\s+supplies\s+last\b|\bsell(?:s|ing)?\s+out\b|\bsold\s+out\b|\bfirst\s+come\b|\bgoing\s+(?:fast|quickly)\b|\bfilling\s+up\b|\bbooking\s+up\b|\brunning\s+out\b|\bguarantee\s+availability\b|\bonly\s+\d+\s+(?:left|available)\b|\bonly\s+a\s+few\s+(?:left|spots)\b|\bhurry\b|\bdon'?t\s+miss\s+(?:out|it)\b|\bbefore\s+(?:we|they)\s+(?:run\s+out|sell\s+out)\b/i;
+const EVC_FULFILLMENT_RE = /\b(?:same|next)[- ]day\b|\bdeliver(?:y|ies|ed|ing)?\s+(?:fresh\s+)?(?:on|by|before|the\s+(?:morning|day|night)|straight|right\s+to)\b|\bfree\s+(?:delivery|shipping)\b|\bpick[- ]?up\s+(?:on|by|times?|window|between|before|after)\b|\bready\s+(?:by|on|the\s+morning|before)\b|\bavailable\s+(?:for\s+pickup\s+)?(?:on|by|from)\s+(?:mon|tues|wednes|thurs|fri|satur|sun)day\b/i;
+const EVC_ONLINE_RE = /\border(?:s|ing|ed)?\b[^.;!?]{0,60}?\bonline\b|\bonline\b[^.;!?]{0,20}?\border|\bonline\s+(?:order\w*|shop\w*|store|checkout|now)\b|\bon\s+our\s+(?:site|website|app)\b|\bour\s+(?:website|app)\b|\blink\s+in\s+(?:our\s+)?bio\b|https?:\/\/|\bwww\.|\b[a-z0-9-]+\.(?:com|net|org|shop)\b/i;
+
+function eventRequestSupplies(requestText, re) {
+  return new RegExp(re.source, re.flags.replace("g", "")).test(String(requestText || ""));
+}
+
+/**
+ * The core supplied facts a customer-facing text must carry. Caption:
+ * the event, the action (when supplied), EVERY supplied product, and the
+ * audience (any of its nouns — "parents" or "students" — expressed
+ * naturally). Flyer wording: the event and the action (its 42/60-char slots
+ * cannot hold everything; the rescue's own flyer body still names the
+ * products). Returns [{ code, detail }].
+ */
+/** The date-bearing token of a supplied deadline/date ("by Friday, Sept 19" →
+ * /friday|sept\S* 19/): the copy must carry at least one of them. */
+function suppliedFactTokensRe(fact) {
+  const tokens = [...String(fact || "").matchAll(/\b(?:(?:mon|tues|wednes|thurs|fri|satur|sun)day|(?:jan|feb|mar|apr|may|jun|jul|aug|sept?|oct|nov|dec)[a-z]*\.?\s+\d{1,2}|\d{1,2}\/\d{1,2}(?:\/\d{2,4})?|\d{1,2}(?::\d{2})?\s?(?:am|pm)|noon|midnight|tomorrow|tonight|end\s+of\s+(?:the|this)\s+(?:week|month))\b/gi)].map((m) => m[0]);
+  if (!tokens.length) return null;
+  return new RegExp(tokens.map((t) => t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/\s+/g, "\\s+")).join("|"), "i");
+}
+
+export function detectMissingEventFacts({ generatedText, eventFacts = null, component = "caption" } = {}) {
+  if (!eventFacts || typeof eventFacts !== "object" || !eventFacts.event) return [];
+  const text = String(generatedText || "");
+  const out = [];
+  if (!eventTermRe(eventFacts).test(text)) out.push({ code: "event_name_missing", detail: eventFacts.eventLabel });
+  if (eventFacts.action && !EVENT_ACTION_TERM_RE.test(text)) out.push({ code: "event_action_missing", detail: eventFacts.action });
+  if (component === "caption") {
+    for (const product of Array.isArray(eventFacts.products) ? eventFacts.products : []) {
+      if (!eventProductRe(product).test(text)) out.push({ code: "event_product_missing", detail: product });
+    }
+    if (eventFacts.audienceLabel && !eventAudienceRe(eventFacts).test(text)) out.push({ code: "event_audience_missing", detail: eventFacts.audienceLabel });
+    // Independent review: a deadline or date the florist SUPPLIED is a
+    // material fact — dropping it is as wrong as inventing one.
+    const deadlineRe = suppliedFactTokensRe(eventFacts.orderDeadline);
+    if (deadlineRe && !deadlineRe.test(text)) out.push({ code: "event_deadline_missing", detail: eventFacts.orderDeadline });
+    const dateRe = suppliedFactTokensRe(eventFacts.eventDate);
+    if (dateRe && !dateRe.test(text)) out.push({ code: "event_date_missing", detail: eventFacts.eventDate });
+  }
+  return out;
+}
+
+/**
+ * Every sentence that adds an event fact the florist never supplied — a
+ * date/weekday, an order deadline, a school, pricing, a discount, scarcity,
+ * delivery/pickup timing, online ordering. A fact IS supplied when the
+ * contract carries it or the request text states it. Returns [{ code, sentence }].
+ */
+export function detectUnsupportedEventClaims({ generatedText, requestText = "", eventFacts = null } = {}) {
+  if (!eventFacts || typeof eventFacts !== "object" || !eventFacts.event) return [];
+  const request = String(requestText || "");
+  const rules = [
+    { code: "event_date_invented", re: EVC_DATE_RE, supplied: Boolean(eventFacts.eventDate) || eventRequestSupplies(request, EVC_DATE_RE) },
+    { code: "event_deadline_invented", re: EVC_DEADLINE_RE, supplied: Boolean(eventFacts.orderDeadline) || eventRequestSupplies(request, EVC_DEADLINE_RE) },
+    { code: "event_school_invented", re: EVC_SCHOOL_RE, supplied: Boolean(eventFacts.school) || eventRequestSupplies(request, EVC_SCHOOL_RE) },
+    { code: "event_pricing_invented", re: EVC_PRICING_RE, supplied: Boolean(eventFacts.pricing) || eventRequestSupplies(request, EVC_PRICING_RE) },
+    { code: "event_discount_invented", re: EVC_DISCOUNT_RE, supplied: Boolean(eventFacts.promotion) || eventRequestSupplies(request, EVC_DISCOUNT_RE) },
+    { code: "event_scarcity_invented", re: EVC_SCARCITY_RE, supplied: Boolean(eventFacts.scarcity) || eventRequestSupplies(request, EVC_SCARCITY_RE) },
+    { code: "event_fulfillment_invented", re: EVC_FULFILLMENT_RE, supplied: Boolean(eventFacts.fulfillmentTiming) || eventRequestSupplies(request, EVC_FULFILLMENT_RE) },
+    { code: "event_online_ordering_invented", re: EVC_ONLINE_RE, supplied: eventRequestSupplies(request, EVC_ONLINE_RE) }
+  ];
+  const out = [];
+  for (const raw of sentencesOf(generatedText)) {
+    const sentence = raw.trim();
+    for (const rule of rules) {
+      if (!rule.supplied && rule.re.test(sentence) && !out.some((o) => o.code === rule.code && o.sentence === sentence)) out.push({ code: rule.code, sentence });
+    }
+  }
+  return out;
+}
+
+/** Removes every sentence carrying an unsupported event claim (same "cut the sentence" pattern as the other strips). Pure. */
+export function stripUnsupportedEventClaims({ generatedText, requestText = "", eventFacts = null } = {}) {
+  const original = String(generatedText || "");
+  const violations = detectUnsupportedEventClaims({ generatedText: original, requestText, eventFacts });
+  if (!violations.length) return { text: original, removed: [] };
+  const bad = new Set(violations.map((v) => v.sentence));
+  const kept = sentencesOf(original).filter((s) => !bad.has(s.trim()));
+  return { text: kept.join(" ").replace(/[ \t]{2,}/g, " ").trim(), removed: [...bad] };
+}
+
+export function eventFactReasonText(entry, eventFacts = null) {
+  const label = eventFacts?.eventLabel || "the event";
+  switch (entry.code) {
+    case "event_name_missing": return `This is a ${label} reminder and the copy never names ${label} — the event must be stated.`;
+    case "event_action_missing": return `The florist asked for an ${entry.detail} reminder and the copy never tells anyone to ${String(entry.detail).replace("_", " ")} — say it plainly.`;
+    case "event_product_missing": return `The florist named "${entry.detail}" and the copy dropped it — name every supplied product (never collapse them into generic "flowers").`;
+    case "event_audience_missing": return `The florist addressed this to "${entry.detail}" and the copy speaks to no one in particular — speak to them.`;
+    case "event_deadline_missing": return `The florist supplied the order deadline "${entry.detail}" and the copy dropped it — state it exactly.`;
+    case "event_date_missing": return `The florist supplied the event date "${entry.detail}" and the copy dropped it — state it exactly.`;
+    case "event_date_invented": return `"${entry.sentence}" states a date or weekday the florist never supplied — drop it.`;
+    case "event_deadline_invented": return `"${entry.sentence}" invents an order deadline or cutoff — a general "order your ${label.replace(/^the\s+/i, "").toLowerCase()} flowers" is fine, a deadline is not.`;
+    case "event_school_invented": return `"${entry.sentence}" names a school the florist never supplied — drop it.`;
+    case "event_pricing_invented": return `"${entry.sentence}" states pricing the florist never supplied — drop it.`;
+    case "event_discount_invented": return `"${entry.sentence}" invents a discount or sale — none was supplied.`;
+    case "event_scarcity_invented": return `"${entry.sentence}" invents scarcity or sell-out urgency — nothing about inventory was supplied.`;
+    case "event_fulfillment_invented": return `"${entry.sentence}" promises delivery or pickup timing the florist never supplied — drop it.`;
+    case "event_online_ordering_invented": return `"${entry.sentence}" adds online ordering or a website that was never supplied — drop it.`;
+    default: return `"${entry.sentence || entry.detail}" conflicts with the ${label} reminder the florist asked for.`;
+  }
+}
+
+function joinNaturalList(items) {
+  const list = (items || []).filter(Boolean);
+  if (list.length <= 1) return list.join("");
+  return `${list.slice(0, -1).join(", ")} and ${list[list.length - 1]}`;
+}
+function capitalizeFirst(text) {
+  const t = String(text || "");
+  return t ? t.charAt(0).toUpperCase() + t.slice(1) : t;
+}
+
+/**
+ * Test E, Part 4: the deterministic event-reminder rescue, composed ONLY
+ * from the event contract — the event, the audience as the florist wrote
+ * it, the supplied action and the supplied product list — plus the shop's
+ * verified name and phone. Never a date, deadline, school, price, discount,
+ * inventory/scarcity claim, delivery/pickup promise, or online channel.
+ * Event-general: the label comes from the contract (Homecoming, Prom, the
+ * school dance, Graduation…), never a campaign-specific branch.
+ */
+export function buildDeterministicEventReminderRescueContent({ shopName, shopPhone, ctaIntent = null, eventFacts, ctaMaxChars = 30, headlineMaxChars = 42, supportingLineMaxChars = 60 } = {}) {
+  const name = String(shopName || "").trim();
+  const phone = shopPhone ? formatStoredPhoneForDisplay(shopPhone) : null;
+  const label = String(eventFacts?.eventLabel || "the event");
+  const plainLabel = label.replace(/^the\s+/i, "");
+  const lowerLabel = /^the\s/i.test(label) ? label.toLowerCase() : plainLabel.toLowerCase();
+  const products = joinNaturalList(Array.isArray(eventFacts?.products) ? eventFacts.products : []);
+  const audience = eventFacts?.audienceLabel ? capitalizeFirst(eventFacts.audienceLabel) : null;
+  const verb = eventFacts?.action === "reserve" ? "reserve" : eventFacts?.action === "book" ? "book" : eventFacts?.action === "pick_up" ? "pick up" : "order";
+  const hasAction = Boolean(eventFacts?.action);
+
+  const headlineWithAction = `${titleCaseWords(verb)} Your ${titleCaseWords(plainLabel)} Flowers`;
+  const headlinePlain = `${titleCaseWords(plainLabel)} Flowers`;
+  const headline = hasAction && headlineWithAction.length <= headlineMaxChars ? headlineWithAction : headlinePlain.length <= headlineMaxChars ? headlinePlain : titleCaseWords(plainLabel).slice(0, headlineMaxChars).replace(/\s+\S*$/, "").trim();
+
+  // The flyer's supporting line is the body's FIRST sentence, bounded by
+  // the slot's own character contract — the products go there when they fit.
+  const eventWord = /^the\s/i.test(label) ? plainLabel.toLowerCase() : lowerLabel;
+  // With no supplied action the supporting line names the flowers, never an
+  // invented "order" instruction (independent review).
+  const bodyWithProducts = hasAction
+    ? (products ? `${capitalizeFirst(verb)} ${eventWord} ${products}.` : `${capitalizeFirst(verb)} your ${eventWord} flowers.`)
+    : `${capitalizeFirst(eventWord)} ${products || "flowers"}${name ? ` from ${name}` : ""}.`;
+  const bodyFallback = hasAction ? `${capitalizeFirst(verb)} your ${eventWord} flowers.` : `${capitalizeFirst(eventWord)} flowers${name ? ` from ${name}` : ""}.`;
+  const bodyFirst = bodyWithProducts.length <= supportingLineMaxChars ? bodyWithProducts : bodyFallback;
+  let body = bodyFirst !== bodyWithProducts && products && name ? `${bodyFirst} ${name} can help with ${products}.` : bodyFirst;
+  // Supplied facts ride along verbatim — a deadline first (it is the
+  // reminder's whole point), then the event date and pickup timing.
+  const suppliedLines = [];
+  if (eventFacts?.orderDeadline) suppliedLines.push(`${capitalizeFirst(verb)} ${eventFacts.orderDeadline}.`);
+  if (eventFacts?.eventDate) suppliedLines.push(`${capitalizeFirst(lowerLabel)} is ${eventFacts.eventDate}.`);
+  if (eventFacts?.fulfillmentTiming) suppliedLines.push(`${capitalizeFirst(eventFacts.fulfillmentTiming)}.`);
+  if (suppliedLines.length) body += ` ${suppliedLines.join(" ")}`;
+
+  const allowCallCta = Boolean(phone) && (ctaIntent === null || ctaIntent === "call_shop");
+  const cta = allowCallCta ? fitCtaToLimit(`Call ${phone}`, ctaMaxChars, { shopPhone, ctaIntent }) : "";
+  const opener = eventFacts?.school ? `${capitalizeFirst(lowerLabel)} at ${eventFacts.school} is coming up!` : `${capitalizeFirst(lowerLabel)} is coming up!`;
+  const what = products || `${eventWord} flowers`;
+  const from = name ? ` from ${name}` : "";
+  let caption;
+  if (hasAction) {
+    caption = audience
+      ? `${opener} ${audience}, don't forget to ${verb} your ${what}${from}.`
+      : `${opener} Don't forget to ${verb} your ${what}${from}.`;
+  } else {
+    caption = audience
+      ? `${opener} ${audience}, ${name || "we"} can help with your ${what}.`
+      : `${opener} ${name || "We"} can help with your ${what}.`;
+  }
+  if (suppliedLines.length) caption += ` ${suppliedLines.join(" ")}`;
+  // "Call … to pick up" is not a thing a customer does by phone; a
+  // contract with no action never invents one.
+  if (allowCallCta) caption += hasAction && eventFacts?.action !== "pick_up" ? ` Call ${phone} to ${verb}.` : ` Call ${phone}.`;
+  return { headline, body, cta, caption, kind: "creative_rescue", eventReminder: true };
+}
+
 export function buildDeterministicCreativeRescueContent({
   shopName,
   shopPhone,
@@ -1197,13 +1409,20 @@ export function buildDeterministicCreativeRescueContent({
   namedCampaign = null,
   messageIntent = null,
   userTemporalIntent = null,
-  promotionFacts = null
+  promotionFacts = null,
+  eventFacts = null
 } = {}) {
   // Test D, Part 4: a real promotion with a structured contract never
   // falls back to the generic florist wording below — that wording would
   // silently DROP the offer the florist actually asked to promote.
   if (promotionFacts && typeof promotionFacts === "object" && (promotionFacts.discount || promotionFacts.product)) {
     return buildDeterministicPromotionRescueContent({ shopName, shopPhone, ctaIntent, promotionFacts });
+  }
+  // Test E, Part 4: an event reminder with a structured contract composes
+  // its rescue from that contract — never the generic florist line that
+  // dropped Homecoming, the audience and every product on the live run.
+  if (eventFacts && typeof eventFacts === "object" && eventFacts.event) {
+    return buildDeterministicEventReminderRescueContent({ shopName, shopPhone, ctaIntent, eventFacts });
   }
   const name = String(shopName || "").trim();
   const phone = shopPhone ? formatStoredPhoneForDisplay(shopPhone) : null;
@@ -2302,7 +2521,74 @@ function stripShopName(sentence, shopName) {
  * Pure; findHollowSentences is now a thin filter over it, so the two can
  * never drift apart.
  */
-export function classifySentenceSpecificity(sentence, shopName) {
+// Test E ("event-reminder fact preservation"): the THIRD route to
+// specificity, alongside the commercial detail and the human situation
+// above — event/campaign copy. A sentence of a homecoming order reminder
+// for parents and students naming corsages and boutonnieres names no
+// listed bloom, no number, and none of RELATIONAL_ACTION_RE's gifting verbs,
+// so both live caption attempts were judged hollow and rescued into generic
+// wording. This route is deliberately NOT an exemption: a sentence counts
+// only when at least TWO distinct event signals appear together — the named
+// event, the supplied audience, a supplied/known floral product, an explicit
+// action — so "Homecoming is a special time." (event only) or "Bouquets
+// make people smile." (product only) stay hollow, exactly as generic event
+// copy should. Gated on a real event contract (canonicalConcept.eventFacts):
+// everyday/promotion/birthday/sympathy copy is classified precisely as
+// before.
+const EVENT_TERM_RE = /\b(?:homecoming|proms?|school\s+(?:dance|formal)|winter\s+formal|graduations?|grads?|senior\s+(?:night|dance|prom))\b/i;
+const EVENT_AUDIENCE_TERM_RE = /\b(?:parents?|students?|seniors?|juniors?|families|moms?|dads?|teens?|grads?)\b/i;
+const EVENT_ACTION_TERM_RE = /\b(?:(?:pre-?)?order(?:s|ed|ing)?|reserv(?:e|es|ed|ing|ations?)|book(?:s|ed|ing)?|choose|pick\s+(?:up|out)|secure|place\s+(?:your|an)\s+order)\b/i;
+const EVENT_PRODUCT_TERM_RE = /\b(?:bouquets?|corsages?|boutonni[eè]res?|wristlets?|arrangements?|center\s?pieces?|flower\s+crowns?|leis?|garlands?)\b/i;
+const EVENT_PRODUCT_FORMS = Object.freeze({
+  bouquets: /\bbouquets?\b/i,
+  corsages: /\bcorsages?\b/i,
+  boutonnieres: /\bboutonni[eè]res?\b/i,
+  wristlets: /\bwristlets?\b/i,
+  arrangements: /\barrangements?\b/i,
+  centerpieces: /\bcenter\s?pieces?\b/i,
+  "flower crowns": /\bflower\s+crowns?\b/i,
+  leis: /\bleis?\b/i,
+  garlands: /\bgarlands?\b/i
+});
+function eventProductRe(product) {
+  return EVENT_PRODUCT_FORMS[product] || new RegExp(`\\b${String(product).replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/s$/, "")}s?\\b`, "i");
+}
+const DANCE_EVENTS = new Set(["homecoming", "prom", "school_dance"]);
+function eventTermRe(eventFacts) {
+  const label = String(eventFacts?.eventLabel || "").replace(/^the\s+/i, "").trim();
+  const extras = [];
+  if (label && !EVENT_TERM_RE.test(label)) extras.push(`\\b${label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`);
+  // "the dance"/"the big dance" names a school-dance event as clearly as its title does.
+  if (DANCE_EVENTS.has(eventFacts?.event)) extras.push("\\b(?:the\\s+(?:big\\s+)?)?dance\\b");
+  if (!extras.length) return EVENT_TERM_RE;
+  return new RegExp(`${EVENT_TERM_RE.source}|${extras.join("|")}`, "i");
+}
+const AUDIENCE_WORD_FORMS = { families: "famil(?:y|ies)", family: "famil(?:y|ies)", moms: "mo(?:m|ther)s?", dads: "(?:dad|father)s?", kids: "kids?|children", children: "kids?|children" };
+function eventAudienceRe(eventFacts) {
+  const words = String(eventFacts?.audienceLabel || "").toLowerCase().split(/\s+/).filter((w) => w && !/^(?:and|&)$/i.test(w));
+  if (!words.length) return EVENT_AUDIENCE_TERM_RE;
+  return new RegExp(words.map((w) => `\\b(?:${AUDIENCE_WORD_FORMS[w] || `${w.replace(/s$/i, "")}s?`})\\b`).join("|"), "i");
+}
+export function eventSpecificitySignals(sentence, eventFacts) {
+  const text = String(sentence || "");
+  if (!eventFacts || typeof eventFacts !== "object") return { event: false, audience: false, product: false, action: false };
+  const products = Array.isArray(eventFacts.products) ? eventFacts.products : [];
+  return {
+    event: eventTermRe(eventFacts).test(text),
+    audience: eventAudienceRe(eventFacts).test(text),
+    product: EVENT_PRODUCT_TERM_RE.test(text) || products.some((p) => eventProductRe(p).test(text)),
+    action: EVENT_ACTION_TERM_RE.test(text)
+  };
+}
+export function hasEventSpecificity(sentence, eventFacts) {
+  const sig = eventSpecificitySignals(sentence, eventFacts);
+  // Independent review: "homecoming bouquets" alone supplied both signals
+  // and laundered filler through — one of the two must be who it's for
+  // or what to do, never just the event-product noun phrase.
+  return Object.values(sig).filter(Boolean).length >= 2 && (sig.audience || sig.action);
+}
+
+export function classifySentenceSpecificity(sentence, shopName, { eventFacts = null } = {}) {
   const bare = stripShopName(String(sentence || ""), shopName);
   if (bare.split(/\s+/).filter(Boolean).length < SUBSTANTIVE_SENTENCE_WORDS) return "short";
   const commercial = SPECIFIC_DETAIL_RE.test(bare);
@@ -2310,12 +2596,13 @@ export function classifySentenceSpecificity(sentence, shopName) {
   if (commercial && human) return "both";
   if (commercial) return "commercial";
   if (human) return "human_situational";
+  if (eventFacts && hasEventSpecificity(bare, eventFacts)) return "event";
   return "hollow";
 }
 
-export function findHollowSentences(copyText, shopName, { audience = null } = {}) {
+export function findHollowSentences(copyText, shopName, { audience = null, eventFacts = null } = {}) {
   if (audience === "self_purchase") return [];
-  return sentencesOf(copyText).filter((sentence) => classifySentenceSpecificity(sentence, shopName) === "hollow");
+  return sentencesOf(copyText).filter((sentence) => classifySentenceSpecificity(sentence, shopName, { eventFacts }) === "hollow");
 }
 
 /**
@@ -2345,11 +2632,12 @@ export function findHollowSentences(copyText, shopName, { audience = null } = {}
  * genuinely generic. Independent review of this batch showed the
  * category counts alone could not tell those two apart.
  */
-export function buildCopySpecificityProfile(copyText, { shopName = null, audience = null, messageIntent = null, bodyText = null } = {}) {
+export function buildCopySpecificityProfile(copyText, { shopName = null, audience = null, messageIntent = null, bodyText = null, eventFacts = null } = {}) {
   const copy = String(copyText || "");
   const sentences = sentencesOf(copy);
-  const sentenceCategoryCounts = { short: 0, commercial: 0, human_situational: 0, both: 0, hollow: 0 };
-  for (const sentence of sentences) sentenceCategoryCounts[classifySentenceSpecificity(sentence, shopName)] += 1;
+  // Test E: "event" is the third specificity route (see classifySentenceSpecificity).
+  const sentenceCategoryCounts = { short: 0, commercial: 0, human_situational: 0, both: 0, event: 0, hollow: 0 };
+  for (const sentence of sentences) sentenceCategoryCounts[classifySentenceSpecificity(sentence, shopName, { eventFacts })] += 1;
   const substantiveSentenceCount = sentences.filter((s) => s.split(/\s+/).filter(Boolean).length >= SUBSTANTIVE_SENTENCE_WORDS).length;
   const wordCount = copy.split(/\s+/).filter(Boolean).length;
   const selfPurchaseExempt = audience === "self_purchase";
@@ -2370,6 +2658,7 @@ export function buildCopySpecificityProfile(copyText, { shopName = null, audienc
     hollowThresholdMet: hollowSentenceCount >= 2 && hollowSentenceCount >= substantiveSentenceCount * 0.6,
     commercialSpecificityMatched: sentenceCategoryCounts.commercial + sentenceCategoryCounts.both > 0,
     humanSituationalSpecificityMatched: sentenceCategoryCounts.human_situational + sentenceCategoryCounts.both > 0,
+    eventSpecificityMatched: sentenceCategoryCounts.event > 0,
     sentenceCategoryCounts,
     signalCounts,
     fillerPhraseHitCount: FILLER_PHRASES.filter((re) => re.test(copy)).length,
@@ -2790,8 +3079,11 @@ function detectWeakMarketingCopyEntries(requestText, copyText, options = {}) {
     const substantive = sentencesOf(copy).filter(
       (s) => s.split(/\s+/).filter(Boolean).length >= SUBSTANTIVE_SENTENCE_WORDS
     );
-    const hollow = findHollowSentences(copy, options.shopName, { audience: options.audience || null });
+    const hollow = findHollowSentences(copy, options.shopName, { audience: options.audience || null, eventFacts: options.eventFacts || null });
     if (hollow.length >= 2 && hollow.length >= substantive.length * 0.6) {
+      const eventRoute = options.eventFacts?.eventLabel
+        ? ` For this ${options.eventFacts.eventLabel} reminder, a sentence is concrete when it names the event together with who it's for, what to ${options.eventFacts.action || "do"}, or the actual products (${(options.eventFacts.products || []).join(", ") || "the flowers"}).`
+        : "";
       entries.push({
         code: "weak_copy_hollow_sentence",
         // Test C copy-quality follow-up: this text becomes the retry's own
@@ -2803,7 +3095,7 @@ function detectWeakMarketingCopyEntries(requestText, copyText, options = {}) {
         // so the same single retry attempt can ground the rewrite in
         // whichever one actually fits this request, without a third
         // provider call.
-        text: `Nothing in this can be pictured or acted on — "${hollow[0]}" would read the same for any business with the nouns swapped. Ground the rewrite in something concrete: name the actual flowers/what's being made, OR a specific recipient, situation, action, or sensory detail — not another abstract, feel-good sentence. Concretely: pick ONE real hook — a specific recipient relationship, a specific everyday situation, a specific action, or the specific consequence for that person — and build the sentence around it. "Makes it easy", "moments that matter", "brighten someone's day", "show you care" and similar phrases do not count as the hook on their own.`
+        text: `Nothing in this can be pictured or acted on — "${hollow[0]}" would read the same for any business with the nouns swapped. Ground the rewrite in something concrete: name the actual flowers/what's being made, OR a specific recipient, situation, action, or sensory detail — not another abstract, feel-good sentence. Concretely: pick ONE real hook — a specific recipient relationship, a specific everyday situation, a specific action, or the specific consequence for that person — and build the sentence around it. "Makes it easy", "moments that matter", "brighten someone's day", "show you care" and similar phrases do not count as the hook on their own.${eventRoute}`
       });
     }
   }
@@ -3168,7 +3460,10 @@ export function evaluateMarketingOutput({
     // prompt asks for a separate cta field, and a 3-sentence body plus a
     // shop-name-and-phone CTA line is exactly what it asked for — that
     // must never read as a 4-sentence paragraph.
-    bodyText: originalFields.body
+    bodyText: originalFields.body,
+    // Test E: the event contract, so event copy has its own route to
+    // specificity (never an exemption from the hollow-sentence rule).
+    eventFacts: canonicalConcept?.eventFacts && typeof canonicalConcept.eventFacts === "object" ? canonicalConcept.eventFacts : null
   };
   // Observability fix (2026-09-06 live-found gap): the top-level
   // reasonCodes entry stays "weak_marketing_copy" for every existing
@@ -3181,7 +3476,7 @@ export function evaluateMarketingOutput({
   // profile of the SAME joined candidate the weak-copy check just judged —
   // computed once here, alongside the decision it explains, never
   // re-derived by a caller from text it shouldn't be holding.
-  const copyProfile = buildCopySpecificityProfile(rawJoined, { shopName, audience: weakCopyOptions.audience, messageIntent: weakCopyOptions.messageIntent, bodyText: originalFields.body });
+  const copyProfile = buildCopySpecificityProfile(rawJoined, { shopName, audience: weakCopyOptions.audience, messageIntent: weakCopyOptions.messageIntent, bodyText: originalFields.body, eventFacts: weakCopyOptions.eventFacts });
   // Review fix: the reasons a caller may act on for the rescue / keep-the-
   // worse-draft decisions — every reason EXCEPT the advisory shape guard.
   const advisoryReasonTexts = new Set(
@@ -3247,7 +3542,7 @@ export function evaluateMarketingOutput({
   // call on a legacy asset without a stored concept) has nothing for the
   // coherence checks to compare against — they stay skipped exactly as
   // before the contract existed.
-  const conceptHasCoherenceFields = Boolean(canonicalConcept) && Object.keys(canonicalConcept).some((k) => k !== "promotionFacts" && k !== "promotionRequestText");
+  const conceptHasCoherenceFields = Boolean(canonicalConcept) && Object.keys(canonicalConcept).some((k) => !["promotionFacts", "promotionRequestText", "eventFacts", "eventRequestText"].includes(k));
   if (conceptHasCoherenceFields && component === "flyer_text") {
     checksRun.push("detectConceptCoherenceMismatch");
     const mismatch = detectConceptCoherenceMismatch({
@@ -3292,6 +3587,32 @@ export function evaluateMarketingOutput({
       reasons.push(missing);
       reasonCodes.push("promotion_offer_missing");
       promotionTermCodes.push("promotion_offer_missing");
+    }
+  }
+  // Test E: event-reminder fact preservation, independently for the
+  // caption and the on-image wording — only when the concept carries an
+  // event contract. Both directions: the supplied facts must survive, and
+  // nothing unsupplied may be added. Blocking (never advisory): a caption
+  // that dropped Homecoming or invented a deadline earns the retry, and a
+  // second failure earns the event rescue — never the generic one.
+  const eventFacts = weakCopyOptions.eventFacts;
+  const eventFactCodes = [];
+  const eventRequestText = typeof canonicalConcept?.eventRequestText === "string" ? canonicalConcept.eventRequestText : promotionRequestText;
+  if (eventFacts) {
+    checksRun.push("detectMissingEventFacts");
+    // Independent review: the persisted caption is the BODY alone — facts
+    // that only appear in the caption's headline field never reach the
+    // customer, so the caption is judged on its body.
+    for (const m of detectMissingEventFacts({ generatedText: component === "caption" ? String(originalFields.body || "") : rawJoined, eventFacts, component })) {
+      reasons.push(eventFactReasonText(m, eventFacts));
+      reasonCodes.push("event_fact_missing");
+      eventFactCodes.push(m.code === "event_product_missing" ? `${m.code}:${m.detail}` : m.code);
+    }
+    checksRun.push("detectUnsupportedEventClaims");
+    for (const v of detectUnsupportedEventClaims({ generatedText: rawJoined, requestText: eventRequestText, eventFacts })) {
+      reasons.push(eventFactReasonText(v, eventFacts));
+      reasonCodes.push("unsupported_event_claim");
+      eventFactCodes.push(v.code);
     }
   }
   // Test D, Part 5: the CTA character contract is a rejection reason, not
@@ -3373,6 +3694,14 @@ export function evaluateMarketingOutput({
         repairedBySet.add("stripUnsupportedPromotionTerms");
       }
     }
+    if (eventFacts) {
+      const eventCleaned = stripUnsupportedEventClaims({ generatedText: text, requestText: eventRequestText, eventFacts });
+      if (eventCleaned.removed.length) {
+        text = eventCleaned.text;
+        repaired = true;
+        repairedBySet.add("stripUnsupportedEventClaims");
+      }
+    }
     if (key === "cta" && ctaLimitApplies) {
       const fitted = fitCtaToLimit(text, ctaMaxChars, { shopPhone, ctaIntent: canonicalConcept?.ctaIntent ?? null });
       if (fitted !== String(text || "").trim()) {
@@ -3388,12 +3717,12 @@ export function evaluateMarketingOutput({
   const blockingReasons = reasons.filter((r) => !advisoryReasonTexts.has(r));
 
   if (reasons.length) {
-    return { decision: isRetryAttempt ? "reject" : "retry", safeCandidate, repaired, repairedBy, reasons, blockingReasons, reasonCodes, weakCopyReasonCodes, promotionTermCodes, copyProfile, evidenceUsed, checksRun };
+    return { decision: isRetryAttempt ? "reject" : "retry", safeCandidate, repaired, repairedBy, reasons, blockingReasons, reasonCodes, weakCopyReasonCodes, promotionTermCodes, eventFactCodes, copyProfile, evidenceUsed, checksRun };
   }
   if (repaired) {
-    return { decision: "repair", safeCandidate, repaired: true, repairedBy, reasons: [], blockingReasons: [], reasonCodes: [], weakCopyReasonCodes, promotionTermCodes, copyProfile, evidenceUsed, checksRun };
+    return { decision: "repair", safeCandidate, repaired: true, repairedBy, reasons: [], blockingReasons: [], reasonCodes: [], weakCopyReasonCodes, promotionTermCodes, eventFactCodes, copyProfile, evidenceUsed, checksRun };
   }
-  return { decision: "pass", safeCandidate: candidate, repaired: false, repairedBy: [], reasons: [], blockingReasons: [], reasonCodes: [], weakCopyReasonCodes, promotionTermCodes, copyProfile, evidenceUsed, checksRun };
+  return { decision: "pass", safeCandidate: candidate, repaired: false, repairedBy: [], reasons: [], blockingReasons: [], reasonCodes: [], weakCopyReasonCodes, promotionTermCodes, eventFactCodes, copyProfile, evidenceUsed, checksRun };
 }
 
 /**
@@ -3526,6 +3855,8 @@ export function buildCopyEvaluationDiagnostic({ attempt, evalResult, diversityEv
     weakCopyReasonCodes: evalResult?.weakCopyReasonCodes || [],
     // Test D: which promotion-term checks fired (codes only).
     promotionTermCodes: evalResult?.promotionTermCodes || [],
+    // Test E: which event-fact checks fired (codes only, never text).
+    eventFactCodes: evalResult?.eventFactCodes || [],
     repairedBy: evalResult?.repairedBy || [],
     diversityDecision: diversityEval?.decision ?? null,
     diversityRepeatedSignals: diversityEval?.repeatedSignals || [],

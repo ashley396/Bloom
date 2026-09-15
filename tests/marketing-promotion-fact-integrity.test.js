@@ -166,7 +166,7 @@ test("Part 2: both prompts carry the contract with every unsupplied term spelled
   assert.doesNotMatch(plain, /PROMOTION CONTRACT/);
   assert.equal(_internalsForTesting.buildSocialPostPromptContext({ promotionFacts: CONTRACT }).promotionContractIncluded, true);
   assert.equal(_internalsForTesting.buildSocialPostPromptContext({}).promotionContractIncluded, false);
-  assert.equal(COPY_GUIDANCE_VERSION, "2026-09-14.v4");
+  assert.equal(COPY_GUIDANCE_VERSION, "2026-09-15.v5");
 });
 
 // ---------------------------------------------------------------------------

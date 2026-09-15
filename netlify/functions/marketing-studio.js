@@ -183,6 +183,7 @@ import {
   classifyMessageIntent,
   classifyUserTemporalIntent,
   classifyPromotionFacts,
+  classifyEventFacts,
   deriveFactRequirements
 } from "./_shared/marketing-canonical-concept.js";
 import { buildDeterministicCreativeDirection, inheritCreativeDirection, hasNoDrawableTextSlots, GRAPHIC_TEXT_LIMITS_DEFAULT } from "./_shared/marketing-creative-direction.js";
@@ -1281,7 +1282,7 @@ export function createMarketingStudioHandler(deps = {}) {
               candidate: captionGen.content,
               // Test D: a revision's promotion contract = the brief plus the
               // florist's own instruction (a code she types here is supplied).
-              canonicalConcept: { promotionFacts: classifyPromotionFacts({ requestText: `${currentItem.data.brief} ${instruction}` }), promotionRequestText: `${currentItem.data.brief} ${instruction}` },
+              canonicalConcept: { promotionFacts: classifyPromotionFacts({ requestText: `${currentItem.data.brief} ${instruction}` }), eventFacts: classifyEventFacts({ requestText: `${currentItem.data.brief} ${instruction}`, occasionTitle: currentItem.data.title }), promotionRequestText: `${currentItem.data.brief} ${instruction}` },
               component: "caption",
               isRetryAttempt: true
             });
@@ -1568,7 +1569,7 @@ export function createMarketingStudioHandler(deps = {}) {
               inventoryEvidence: currentAsset.content?.grounded_in_inventory || [],
               candidate: gen.content,
               // Test D: the revision's promotion contract (brief + instruction).
-              canonicalConcept: { promotionFacts: classifyPromotionFacts({ requestText: `${currentItem.data.brief} ${instruction}` }), promotionRequestText: `${currentItem.data.brief} ${instruction}` },
+              canonicalConcept: { promotionFacts: classifyPromotionFacts({ requestText: `${currentItem.data.brief} ${instruction}` }), eventFacts: classifyEventFacts({ requestText: `${currentItem.data.brief} ${instruction}`, occasionTitle: currentItem.data.title }), promotionRequestText: `${currentItem.data.brief} ${instruction}` },
               component: "caption",
               isRetryAttempt: true
             });
@@ -1658,7 +1659,7 @@ export function createMarketingStudioHandler(deps = {}) {
               // concept preview, and the CTA contract is enforced here too —
               // a revision could otherwise ship an invented code or an
               // over-limit CTA the renderer would then silently drop.
-              canonicalConcept: { ...(conceptPreview || {}), promotionFacts: classifyPromotionFacts({ requestText: `${currentItem.data.brief} ${instruction}` }), promotionRequestText: `${currentItem.data.brief} ${instruction}` },
+              canonicalConcept: { ...(conceptPreview || {}), promotionFacts: classifyPromotionFacts({ requestText: `${currentItem.data.brief} ${instruction}` }), eventFacts: classifyEventFacts({ requestText: `${currentItem.data.brief} ${instruction}`, occasionTitle: currentItem.data.title }), promotionRequestText: `${currentItem.data.brief} ${instruction}` },
               component: "flyer_text",
               isRetryAttempt: true,
               graphicTextLimits: { ctaMaxChars: GRAPHIC_TEXT_LIMITS_DEFAULT.ctaMaxChars }
@@ -1954,7 +1955,7 @@ export function createMarketingStudioHandler(deps = {}) {
             inventoryEvidence: currentAsset.content?.grounded_in_inventory || [],
             candidate: gen.content,
             // Test D: the revision's promotion contract (brief + instruction).
-            canonicalConcept: { promotionFacts: classifyPromotionFacts({ requestText: `${currentItem.data.brief} ${instruction}` }), promotionRequestText: `${currentItem.data.brief} ${instruction}` },
+            canonicalConcept: { promotionFacts: classifyPromotionFacts({ requestText: `${currentItem.data.brief} ${instruction}` }), eventFacts: classifyEventFacts({ requestText: `${currentItem.data.brief} ${instruction}`, occasionTitle: currentItem.data.title }), promotionRequestText: `${currentItem.data.brief} ${instruction}` },
             component: "caption",
             isRetryAttempt: true
           });
@@ -2875,6 +2876,16 @@ export function createMarketingStudioHandler(deps = {}) {
           // later, classified here from the same brief so the caption
           // prompt, the evaluator and the rescue all read one contract.
           const socialConceptPromotionFacts = classifyPromotionFacts({ requestText: currentItem.data.brief });
+          // Test E: the structured event-reminder contract — classified from
+          // the SAME occasion/campaign/audience decisions above, so the
+          // caption prompt, the evaluator and the rescue read one contract.
+          const socialConceptEventFacts = classifyEventFacts({
+            requestText: currentItem.data.brief,
+            occasionTitle: currentItem.data.title,
+            occasionCategory: socialConceptOccasionCategory,
+            namedCampaign: socialConceptNamedCampaign,
+            audience: socialConceptAudience
+          });
           const socialConceptCopyVoice = classifyCopyVoice({
             creativeMode: socialConceptCreativeMode,
             namedCampaign: socialConceptNamedCampaign,
@@ -2905,7 +2916,8 @@ export function createMarketingStudioHandler(deps = {}) {
               // generation has already failed twice.
               messageIntent: socialConceptMessageIntent,
               userTemporalIntent: socialConceptUserTemporalIntent,
-              promotionFacts: socialConceptPromotionFacts
+              promotionFacts: socialConceptPromotionFacts,
+              eventFacts: socialConceptEventFacts
             }
           };
           copyGen = await generateSocialPost(socialPostArgs);
@@ -2940,7 +2952,7 @@ export function createMarketingStudioHandler(deps = {}) {
           // classified above travels with it, so the evaluator's narrow
           // everyday-caption shape guard can scope itself — never a second
           // classifier, and nothing else in the preview changes.
-          const captionConceptPreview = { audience: socialConceptAudience, messageIntent: socialConceptMessageIntent, promotionFacts: socialConceptPromotionFacts };
+          const captionConceptPreview = { audience: socialConceptAudience, messageIntent: socialConceptMessageIntent, promotionFacts: socialConceptPromotionFacts, eventFacts: socialConceptEventFacts };
           let captionEval = evaluateMarketingOutput({
             route: "generate_content",
             request: currentItem.data.brief,
@@ -3148,7 +3160,8 @@ export function createMarketingStudioHandler(deps = {}) {
               namedCampaign: socialConceptNamedCampaign,
               messageIntent: socialConceptMessageIntent,
               userTemporalIntent: socialConceptUserTemporalIntent,
-              promotionFacts: socialConceptPromotionFacts
+              promotionFacts: socialConceptPromotionFacts,
+              eventFacts: socialConceptEventFacts
             });
             // Reused as `nf` by generateFlyerCopy below — this is what
             // stops the flyer's on-image wording from independently
@@ -3335,6 +3348,15 @@ export function createMarketingStudioHandler(deps = {}) {
         });
         const conceptUserTemporalIntent = classifyUserTemporalIntent({ requestText: currentItem.data.brief });
         const conceptPromotionFacts = classifyPromotionFacts({ requestText: currentItem.data.brief });
+        // Test E: the same event contract for the flyer wording prompt, its
+        // evaluator and its rescue.
+        const conceptEventFacts = classifyEventFacts({
+          requestText: currentItem.data.brief,
+          occasionTitle: currentItem.data.title,
+          occasionCategory: conceptOccasionCategory,
+          namedCampaign: conceptNamedCampaign,
+          audience: conceptAudience
+        });
         // Test D, Part 5: the on-image text contract this branch will
         // persist (buildDeterministicCreativeDirection copies these same
         // defaults) — stated to the wording model and enforced by the
@@ -3377,6 +3399,7 @@ export function createMarketingStudioHandler(deps = {}) {
           // Test D: the structured promotion contract + CTA limit reach the
           // flyer-wording prompt and its evaluator.
           promotionFacts: conceptPromotionFacts,
+          eventFacts: conceptEventFacts,
           ctaMaxChars: flyerTextLimits.ctaMaxChars
         };
 
@@ -3577,7 +3600,8 @@ export function createMarketingStudioHandler(deps = {}) {
               namedCampaign: conceptNamedCampaign,
               messageIntent: conceptMessageIntent,
               userTemporalIntent: conceptUserTemporalIntent,
-              promotionFacts: conceptPromotionFacts
+              promotionFacts: conceptPromotionFacts,
+              eventFacts: conceptEventFacts
             });
             flyerGen.content.headline = flyerFallback.headline;
             flyerGen.content.body = flyerFallback.body;

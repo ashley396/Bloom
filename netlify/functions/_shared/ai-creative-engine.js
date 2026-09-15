@@ -201,6 +201,7 @@ ${audienceCopyLine(concept?.audience)}
 ${messageIntentCopyLine(concept?.messageIntent)}
 ${userTemporalIntentLine(concept?.userTemporalIntent)}
 ${promotionFactsLine(concept?.promotionFacts)}
+${eventFactsLine(concept?.eventFacts)}
 ${TEMPORAL_FACT_SAFETY_RULE}
 - Match the platform's real voice: warm and conversational for Facebook/Instagram, concise everywhere.
 - visual_brief must describe a concrete photo concept (say what's actually in the shot — never a vague placeholder like "a beautiful arrangement") but must NEVER independently choose or name a specific flower species/variety (roses, peonies, hydrangeas, alstroemeria, lilies, tulips, etc.) — default to a generic, still-concrete scene ("a lush, professionally designed mixed-flower arrangement with varied fresh blooms and natural greenery") UNLESS the florist's own request named that flower, or the real stock list above supports it AND the request is actually about that stock.
@@ -607,7 +608,7 @@ function audienceCopyLine(audience) {
 // MESSAGE_INTENT_COPY_GUIDANCE / userTemporalIntentLine changes, so a
 // persisted attempt diagnostic can say which guidance text the model
 // actually saw. Never the guidance text itself.
-export const COPY_GUIDANCE_VERSION = "2026-09-14.v4";
+export const COPY_GUIDANCE_VERSION = "2026-09-15.v5";
 
 // Test C follow-up (live run on e239e8c still produced copy the evaluator
 // rejected twice): the shared, explicit list of constructions that read as
@@ -704,7 +705,9 @@ function buildSocialPostPromptContext(concept) {
     // matching two-or-three-sentence LENGTH line) were in this prompt.
     everydayShapeRuleIncluded: isEverydaySocialMessageIntent(concept?.messageIntent),
     // Test D: whether the structured promotion contract reached the prompt.
-    promotionContractIncluded: Boolean(promotionFactsLine(concept?.promotionFacts))
+    promotionContractIncluded: Boolean(promotionFactsLine(concept?.promotionFacts)),
+    // Test E: whether the structured event contract reached the prompt.
+    eventContractIncluded: Boolean(eventFactsLine(concept?.eventFacts))
   };
 }
 
@@ -755,6 +758,33 @@ function promotionFactsLine(promotionFacts) {
   );
 }
 
+// Test E ("event-reminder fact preservation"): the structured event
+// contract, rendered as the facts this post MUST carry and the facts it
+// must NOT invent. The live failure was an event reminder whose generated
+// captions were judged hollow and whose rescue dropped every supplied fact;
+// this line tells the writer exactly which facts are the post.
+function eventFactsLine(eventFacts) {
+  if (!eventFacts || typeof eventFacts !== "object" || !eventFacts.event) return "";
+  const label = String(eventFacts.eventLabel || "the event");
+  const lower = label.replace(/^the\s+/i, "").toLowerCase();
+  const verb = eventFacts.action ? String(eventFacts.action).replace("_", " ") : null;
+  const products = Array.isArray(eventFacts.products) && eventFacts.products.length ? eventFacts.products : null;
+  const parts = [
+    `EVENT CONTRACT — this is a ${label} reminder post.`,
+    eventFacts.audienceLabel ? `Audience: "${eventFacts.audienceLabel}" — speak to them directly.` : "Audience: NONE named — do not invent one.",
+    verb ? `Purpose: ${/^[aeiou]/i.test(verb) ? "an" : "a"} ${verb} reminder — the post exists to remind them to ${verb}; general encouragement like "${verb} your ${lower} flowers" is fine.` : "Purpose: awareness — do not invent an ordering deadline or urgency.",
+    products ? `Products: ${products.join(", ")} — name ALL of them, never collapse them into generic "flowers".` : "Products: NONE named — keep flower language generic.",
+    eventFacts.eventDate ? `Event date: "${eventFacts.eventDate}" — state it exactly.` : "Event date: NONE supplied — never state or imply a date or weekday.",
+    eventFacts.orderDeadline ? `Order deadline: "${eventFacts.orderDeadline}" — state it exactly.` : "Order deadline: NONE — never 'order by', 'last day', a cutoff, or 'before it's too late'.",
+    eventFacts.school ? `School: "${eventFacts.school}" — exactly that, nothing more.` : "School: NONE — never name a school, mascot, or school colors.",
+    eventFacts.pricing || eventFacts.promotion ? `Pricing/offer: "${eventFacts.pricing || eventFacts.promotion}" — exactly that.` : "Pricing/discount: NONE — no prices, discounts, or sales.",
+    eventFacts.scarcity ? `Availability: "${eventFacts.scarcity}" — exactly that.` : "Inventory/scarcity: NONE — no 'limited', 'sell out', 'while supplies last', 'hurry'.",
+    eventFacts.fulfillmentTiming ? `Pickup/delivery: "${eventFacts.fulfillmentTiming}" — exactly that.` : "Pickup/delivery timing: NONE — no delivery, pickup, or same-day promises.",
+    "Online ordering: NONE — never 'order online', a website, or an app."
+  ];
+  return `- ${parts.join(" ")}`;
+}
+
 function userTemporalIntentLine(userTemporalIntent) {
   const word = USER_TEMPORAL_INTENT_WORDS[userTemporalIntent];
   if (!word) return "";
@@ -786,6 +816,7 @@ ${audienceCopyLine(concept?.audience)}
 ${messageIntentCopyLine(concept?.messageIntent)}
 ${userTemporalIntentLine(concept?.userTemporalIntent)}
 ${promotionFactsLine(concept?.promotionFacts)}
+${eventFactsLine(concept?.eventFacts)}
 ${TEMPORAL_FACT_SAFETY_RULE}
 - ANY concrete fact the florist gave you verbatim — a time, a phone number, a price, a date, a percentage — must appear in your output EXACTLY as given. Never paraphrase, round, or reformat a number or time. This is the single most important rule here.
 - headline: short, bold, the first thing read.
@@ -909,5 +940,6 @@ export const _internalsForTesting = {
   EVERYDAY_SOCIAL_SHAPE_RULE,
   lengthRuleLine,
   promotionFactsLine,
+  eventFactsLine,
   TEMPORAL_FACT_SAFETY_RULE
 };

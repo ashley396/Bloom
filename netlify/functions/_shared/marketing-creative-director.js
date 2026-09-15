@@ -427,10 +427,54 @@ function eventReminderSentence({ occasionCategory, factRequirements } = {}) {
     : "This is an event-specific reminder post — let the composition feel purposeful and occasion-specific, visually distinct from a routine, no-deadline post.";
 }
 
-function avoidanceSentence(cd) {
+// Test E ("event-reminder fact preservation", 2026-09-15): the live
+// Homecoming reminder's premium image was a bouquet with pastel balloons —
+// a generic celebration that could have been a birthday. The image
+// direction now reads the STRUCTURED event contract (canonicalConcept.
+// eventFacts — the classified campaign and the florist's own supplied
+// product list, never request text, never a date/school/colors) and asks
+// for the real thing: formal-dance flowers. Product cues are gentle
+// ("a wrist corsage and a matching boutonniere") — a real florist's
+// presentation, not a literal catalog — and every invented school detail is
+// forbidden explicitly. Event-general via the setting table below.
+const EVENT_SETTING_PHRASES = Object.freeze({
+  homecoming: "a school homecoming dance",
+  prom: "a prom night",
+  school_dance: "a school formal dance",
+  graduation: "a graduation celebration"
+});
+const EVENT_PRODUCT_VISUALS = Object.freeze({
+  corsages: "a wrist corsage on satin ribbon",
+  boutonnieres: "a matching boutonniere",
+  bouquets: "a hand-tied bouquet",
+  wristlets: "a wristlet corsage",
+  arrangements: "a fresh arrangement",
+  centerpieces: "a table centerpiece",
+  "flower crowns": "a flower crown",
+  leis: "a fresh flower lei",
+  garlands: "a floral garland"
+});
+const EVENT_AVOIDANCE_ITEMS = Object.freeze([
+  "balloons, streamers, confetti or cake",
+  "birthday or wedding styling",
+  "any school name, mascot, logo, jersey, pennant, banner or scoreboard",
+  "any specific school colors, date or lettering"
+]);
+function eventCampaignSentence(eventFacts) {
+  if (!eventFacts || typeof eventFacts !== "object" || !eventFacts.event) return null;
+  const setting = EVENT_SETTING_PHRASES[eventFacts.event] || "a special event";
+  const cues = (Array.isArray(eventFacts.products) ? eventFacts.products : []).map((p) => EVENT_PRODUCT_VISUALS[p]).filter(Boolean);
+  const hero = cues.length ? cues.join(", ") : "formal-occasion flowers";
+  return `This is a florist's campaign for ${setting}: the hero must read unmistakably as flowers for that occasion — ${hero} — styled formally with a clean, fresh finish, presented the way a real florist would present them, never balloons, streamers, confetti, cake, birthday or wedding cues. Never depict a school name, mascot, logo, jersey, pennant, banner, scoreboard, specific school colors, a date, or any lettering.`;
+}
+
+function avoidanceSentence(cd, canonicalConcept = null) {
   const items = [...BASE_AVOIDANCE_ITEMS];
   if (!FRAMED_COMPOSITIONS.includes(cd.compositionFamily)) {
     items.push("a centered decorative flower border");
+  }
+  if (canonicalConcept?.eventFacts && typeof canonicalConcept.eventFacts === "object" && canonicalConcept.eventFacts.event) {
+    items.push(...EVENT_AVOIDANCE_ITEMS);
   }
   return `Avoid: ${items.join(", ")}.`;
 }
@@ -470,6 +514,7 @@ export function buildCreativeDirectorDirection({ canonicalConcept = null, creati
     decorativeSentence(creativeDirection),
     marketingActionSentence({ objective: canonicalConcept.objective, ctaIntent: canonicalConcept.ctaIntent }),
     eventReminderSentence({ occasionCategory: canonicalConcept.occasionCategory, factRequirements: canonicalConcept.factRequirements }),
+    eventCampaignSentence(canonicalConcept.eventFacts),
     audienceSentence(canonicalConcept.audience),
     photoForwardReinforcementSentence(creativeDirection)
   ].filter(Boolean);
@@ -478,7 +523,7 @@ export function buildCreativeDirectorDirection({ canonicalConcept = null, creati
     ok: true,
     version: CREATIVE_DIRECTOR_VERSION,
     directionText: sentences.join(" "),
-    avoidanceText: avoidanceSentence(creativeDirection),
+    avoidanceText: avoidanceSentence(creativeDirection, canonicalConcept),
     occasionTreatment: creativeDirection.occasionTreatment ?? null
   };
 }

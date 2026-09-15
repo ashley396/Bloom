@@ -97,7 +97,7 @@ test("profile: fully hollow copy reports 3/3 hollow substantive sentences, ratio
   assert.equal(profile.hollowThresholdMet, true);
   assert.equal(profile.commercialSpecificityMatched, false);
   assert.equal(profile.humanSituationalSpecificityMatched, false);
-  assert.deepEqual(profile.sentenceCategoryCounts, { short: 0, commercial: 0, human_situational: 0, both: 0, hollow: 3 });
+  assert.deepEqual(profile.sentenceCategoryCounts, { short: 0, commercial: 0, human_situational: 0, both: 0, event: 0, hollow: 3 });
   // The independent sub-signals: sentences 1 and 3 carry a bare person
   // reference ("someone"/"you"/"them"), sentence 2 carries none, and no
   // sentence has a relational action — this is what distinguishes generic
@@ -369,7 +369,9 @@ test("generateSocialPost: returns promptContext alongside the copy, computed fro
       // Test C writer-quality fix: send_flowers is an everyday gifting intent.
       everydayShapeRuleIncluded: true,
       // Test D: a non-promotion carries no promotion contract in its prompt.
-      promotionContractIncluded: false
+      promotionContractIncluded: false,
+      // Test E: a non-event carries no event contract in its prompt.
+      eventContractIncluded: false
     });
     assertNoRawCopy(JSON.stringify(result.promptContext), "promptContext");
   } finally {

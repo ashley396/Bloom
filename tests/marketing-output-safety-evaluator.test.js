@@ -965,6 +965,8 @@ test("buildCopyEvaluationDiagnostic: never carries the candidate's own generated
     weakCopyReasonCodes: [],
     // Test D: which promotion-term checks fired — none for a non-promotion.
     promotionTermCodes: [],
+    // Test E: which event-fact checks fired — none for a non-event.
+    eventFactCodes: [],
     repairedBy: ["stripInventedTemporalClaims"],
     diversityDecision: "retry",
     diversityRepeatedSignals: ["concept_fingerprint"],
@@ -984,7 +986,9 @@ test("buildCopyEvaluationDiagnostic: never carries the candidate's own generated
       hollowThresholdMet: false,
       commercialSpecificityMatched: false,
       humanSituationalSpecificityMatched: false,
-      sentenceCategoryCounts: { short: 1, commercial: 0, human_situational: 0, both: 0, hollow: 1 },
+      // Test E: the third specificity route (event copy) — never for a non-event.
+      eventSpecificityMatched: false,
+      sentenceCategoryCounts: { short: 1, commercial: 0, human_situational: 0, both: 0, event: 0, hollow: 1 },
       signalCounts: { personReference: 1, relationalAction: 0, commercialDetail: 0 },
       fillerPhraseHitCount: 0,
       selfPurchaseExempt: true,
@@ -1021,6 +1025,7 @@ test("buildCopyEvaluationDiagnostic: missing evalResult/diversityEval degrade to
     reasonCodes: [],
     weakCopyReasonCodes: [],
     promotionTermCodes: [],
+    eventFactCodes: [],
     repairedBy: [],
     diversityDecision: null,
     diversityRepeatedSignals: [],

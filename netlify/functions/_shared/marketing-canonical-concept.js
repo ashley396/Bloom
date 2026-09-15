@@ -503,6 +503,143 @@ const PROMO_CHANNEL_RULES = Object.freeze([
 const PROMO_RESTRICTION_RE =
   /\b(?:exclud\w+[^.,;]*|minimum\s+(?:purchase|order|spend)[^.,;]*|while\s+supplies\s+last|while\s+stocks?\s+last|limited\s+(?:quantit\w+|time|stock)|in[- ]store\s+only|online\s+only|one\s+per\s+customer|cannot\s+be\s+combined[^.,;]*|not\s+valid[^.,;]*|some\s+exclusions\s+apply|terms\s+apply|select\s+(?:items|styles|bouquets)|regular[- ]priced?\s+items?|free\s+(?:delivery|shipping))\b/gi;
 
+// ---------------------------------------------------------------------------
+// Test E ("event-reminder fact preservation", 2026-09-15). Live failure:
+// "Remind parents and students to order homecoming bouquets, corsages and
+// boutonnieres." classified correctly (event_reminder / homecoming /
+// students_and_parents / campaign_poster) but nothing downstream carried the
+// facts the florist actually supplied — both generated captions were
+// rejected as hollow, and the deterministic rescue fell to the generic
+// "moments that matter" line, dropping the event, the audience, the order
+// reminder and all three products. This is the STRUCTURED contract every
+// consumer (the wording prompts, the evaluator, the rescue, the image
+// direction) reads instead: only what the request supplied is ever
+// non-null, and every absent fact is represented explicitly so nothing can
+// invent it. Event-general by construction: the event identity is the
+// already-classified namedCampaign (homecoming, prom, school_dance,
+// graduation…) — never a Homecoming-specific string path.
+// ---------------------------------------------------------------------------
+
+export const EVENT_FACTS_VERSION = 1;
+
+/** Display labels for the campaigns that carry an event contract. A
+ * campaign not listed here still gets a contract when the request is an
+ * event_reminder (label falls back to "the event"). */
+export const EVENT_CAMPAIGN_LABELS = Object.freeze({
+  homecoming: "Homecoming",
+  prom: "Prom",
+  school_dance: "the school dance",
+  graduation: "Graduation"
+});
+
+/** Floral product categories a request may name for an event. The key is
+ * the canonical plural; the pattern accepts singular and plural. Kept
+ * deliberately to real florist event products — never a broad noun list. */
+export const EVENT_PRODUCT_RULES = Object.freeze([
+  { key: "bouquets", re: /\bbouquets?\b/i },
+  { key: "corsages", re: /\bcorsages?\b/i },
+  { key: "boutonnieres", re: /\bboutonni[eè]res?\b/i },
+  { key: "wristlets", re: /\bwristlets?\b/i },
+  { key: "arrangements", re: /\barrangements?\b/i },
+  { key: "centerpieces", re: /\bcenter\s?pieces?\b/i },
+  { key: "flower crowns", re: /\bflower\s+crowns?\b/i },
+  { key: "leis", re: /\bleis?\b/i },
+  { key: "garlands", re: /\bgarlands?\b/i }
+]);
+const EVENT_ACTION_RULES = Object.freeze([
+  { action: "order", re: /\b(?:pre-?)?order(?:s|ed|ing)?\b/i },
+  { action: "reserve", re: /\breserv(?:e|es|ed|ing|ations?)\b/i },
+  { action: "book", re: /\bbook(?:s|ed|ing)?\b/i },
+  { action: "pick_up", re: /\bpick(?:s|ed|ing)?\s*up\b/i }
+]);
+// The audience AS THE FLORIST WROTE IT ("parents and students"), kept
+// verbatim (lowercased) so the rescue can address them naturally.
+const EVENT_AUDIENCE_PHRASE_RE = /\b(parents?\s+(?:and|&)\s+students?|students?\s+(?:and|&)\s+parents?|students?|parents?|seniors?|juniors?|families|moms?|dads?)\b/i;
+// Absent-fact extractors: a value only when the request itself states it.
+const EVENT_DATE_RE = /\b(?:(?:jan|feb|mar|apr|may|jun|jul|aug|sept?|oct|nov|dec)[a-z]*\.?\s+\d{1,2}(?:st|nd|rd|th)?(?:,?\s+\d{4})?|\d{1,2}\/\d{1,2}(?:\/\d{2,4})?|(?:this|next)\s+(?:mon|tues|wednes|thurs|fri|satur|sun)day|(?:mon|tues|wednes|thurs|fri|satur|sun)day(?:\s+(?:the\s+)?\d{1,2}(?:st|nd|rd|th)?)?)\b/i;
+const EVENT_DEADLINE_RE = new RegExp("\\b(?:pre-?order|order|reserve|book)\\w*\\b[^.;!?]{0,80}?\\b((?:by|before|no\\s+later\\s+than)\\s+(?:(?:this|next)\\s+)?(?:(?:the\\s+)?end\\s+of\\s+(?:the|this)\\s+(?:week|month)|(?:mon|tues|wednes|thurs|fri|satur|sun)day(?:,?\\s+(?:jan|feb|mar|apr|may|jun|jul|aug|sept?|oct|nov|dec)[a-z]*\\.?\\s+\\d{1,2}(?:st|nd|rd|th)?)?|(?:jan|feb|mar|apr|may|jun|jul|aug|sept?|oct|nov|dec)[a-z]*\\.?\\s+\\d{1,2}(?:st|nd|rd|th)?|the\\s+\\d{1,2}(?:st|nd|rd|th)?|\\d{1,2}(?:\\/\\d{1,2}(?:\\/\\d{2,4})?|:\\d{2}\\s?(?:am|pm)?|\\s?(?:am|pm))|noon|midnight|tomorrow|tonight|the\\s+(?:weekend|dance|game)))|\\b(deadline\\b[^.,;!?]{0,40}|last\\s+(?:day|chance)\\s+to\\s+(?:order|reserve|book)\\b[^.,;!?]{0,40}|orders?\\s+(?:close|closes|are\\s+due|due)\\b[^.,;!?]{0,30}|cut-?off\\b[^.,;!?]{0,30})", "i");
+const EVENT_SCHOOL_RE = /\b([A-Z][\w'&.-]*(?:\s+[A-Z][\w'&.-]*){0,3}\s+(?:High School|Middle School|Academy|Prep|HS|High))\b/;
+// A sentence-initial imperative ("Remind Lincoln High School students…") is
+// never part of the school's name.
+const SCHOOL_LEADING_VERB_RE = /^(?:Remind|Tell|Let|Help|Create|Make|Write|Post|Please|Attention|Calling|Hey|Hi|Reminder|Ask|Invite|Encourage)\s+/i;
+const EVENT_PRICING_RE = /\$\s?\d+(?:\.\d{2})?[^.,;!?]{0,30}|\bstarting\s+at\b[^.,;!?]{0,30}|\b\d{1,3}\s?%\s*off\b[^.,;!?]{0,30}/i;
+const EVENT_SCARCITY_RE = /\blimited\s+(?:quantit\w+|supply|supplies|stock|number|availability)\b|\bwhile\s+supplies\s+last\b|\bsell(?:s|ing)?\s+out\b|\bsold\s+out\b|\bfirst\s+come\b[^.,;!?]{0,20}|\bgoing\s+fast\b|\bonly\s+\d+\s+(?:left|available)\b/i;
+const EVENT_FULFILLMENT_RE = /\b(?:same|next)[- ]day\b[^.,;!?]{0,20}|\bdeliver(?:y|ies|ed|ing)?\b[^.,;!?]{0,30}|\bpick[- ]?up\s+(?:on|at|by|available|times?|window)\b[^.,;!?]{0,30}|\bready\s+(?:for\s+pickup|by|on)\b[^.,;!?]{0,30}/i;
+
+function firstMatchOrNull(text, re) {
+  const m = String(text || "").match(re);
+  if (!m) return null;
+  // A capturing group, when the pattern has one that matched, is the fact
+  // itself (the deadline's "by Friday, May 3"); otherwise the whole match.
+  const captured = m.slice(1).find((g) => typeof g === "string" && g.trim());
+  return (captured || m[0]).trim().replace(/\s+/g, " ");
+}
+
+/**
+ * The event-reminder fact contract for a request, or null when the request
+ * is not an event reminder. Applies to an `event_reminder` occasion (the
+ * named school-dance-style events) and to a named campaign in
+ * EVENT_CAMPAIGN_LABELS when the florist supplied an ordering action (a
+ * plain graduation celebration post stays exactly as it was).
+ *
+ * Shape: { version, event, eventLabel, audience, audienceLabel, action,
+ * products: string[], eventDate, orderDeadline, school, pricing, promotion,
+ * scarcity, fulfillmentTiming } — every field after `products` is null
+ * unless the request itself stated it. occasionCategory / namedCampaign /
+ * audience are the caller's already-classified values when given (never a
+ * second competing classification); classified here only for callers that
+ * have none (the revision route).
+ */
+export function classifyEventFacts({ requestText = "", occasionTitle = "", occasionCategory = null, namedCampaign = null, audience = null } = {}) {
+  const request = String(requestText || "");
+  const haystack = `${occasionTitle} ${request}`;
+  const category = occasionCategory ?? classifyOccasionCategory({ occasionTitle, requestText: request });
+  const campaign = namedCampaign ?? classifyNamedCampaign({ occasionTitle, requestText: request, occasionCategory: category });
+  let action = null;
+  for (const rule of EVENT_ACTION_RULES) {
+    if (rule.re.test(request)) { action = rule.action; break; }
+  }
+  const labelled = Boolean(campaign && EVENT_CAMPAIGN_LABELS[campaign]);
+  const isEvent = category === "event_reminder" || (labelled && action);
+  if (!isEvent) return null;
+  const event = labelled ? campaign : campaign && campaign !== "none" ? campaign : "event";
+  const eventLabel = EVENT_CAMPAIGN_LABELS[event] || "the event";
+  const audienceKey = audience ?? classifyAudience({ requestText: request, occasionTitle, occasionCategory: category });
+  const audienceMatch = haystack.match(EVENT_AUDIENCE_PHRASE_RE);
+  const audienceLabel = audienceMatch ? audienceMatch[1].replace(/\s*&\s*/, " and ").replace(/\s+/g, " ").toLowerCase() : null;
+  // Products in the order the florist named them, canonical plural keys.
+  const products = EVENT_PRODUCT_RULES
+    .map((rule) => ({ key: rule.key, at: request.search(rule.re) }))
+    .filter((p) => p.at >= 0)
+    .sort((a, b) => a.at - b.at)
+    .map((p) => p.key);
+  const promotion = requestSignalsRealPromotion(request) ? firstMatchOrNull(request, /\b\d{1,3}\s?%\s*off\b|\$\s?\d+(?:\.\d{2})?\s*off\b|\bsale\b|\bdiscount\b|\bspecial\s+offer\b/i) : null;
+  // An order deadline's own weekday/date is the DEADLINE, never the event
+  // date — the event date is only what remains once the deadline is set aside.
+  const orderDeadline = firstMatchOrNull(request, EVENT_DEADLINE_RE);
+  const deadlineSpan = request.match(EVENT_DEADLINE_RE);
+  // Nor is a pickup/delivery day the event date.
+  const fulfillmentSpan = request.match(EVENT_FULFILLMENT_RE);
+  const dateSource = [deadlineSpan, fulfillmentSpan].reduce((text, span) => (span ? text.replace(span[0], " ") : text), request);
+  const eventDate = firstMatchOrNull(dateSource, EVENT_DATE_RE);
+  return {
+    version: EVENT_FACTS_VERSION,
+    event,
+    eventLabel,
+    audience: audienceKey,
+    audienceLabel,
+    action,
+    products,
+    eventDate,
+    orderDeadline,
+    school: (firstMatchOrNull(request, EVENT_SCHOOL_RE) || "").replace(SCHOOL_LEADING_VERB_RE, "") || null,
+    pricing: firstMatchOrNull(request, EVENT_PRICING_RE),
+    promotion,
+    scarcity: firstMatchOrNull(request, EVENT_SCARCITY_RE),
+    fulfillmentTiming: firstMatchOrNull(request, EVENT_FULFILLMENT_RE)
+  };
+}
+
 /**
  * The promotion contract for a request, or null when the request is not a
  * real promotion at all. Only what the florist SUPPLIED (or a caller's
@@ -962,7 +1099,10 @@ export function buildCanonicalConcept({
     // Test D: the structured promotion contract (null for a non-promotion).
     // Deliberately NOT an identity field — a wording revision must not be
     // treated as concept drift because a promo code was supplied later.
-    promotionFacts: classifyPromotionFacts({ requestText, promotionIntent })
+    promotionFacts: classifyPromotionFacts({ requestText, promotionIntent }),
+    // Test E: the structured event-reminder contract (null for a
+    // non-event). Same discipline as promotionFacts: not an identity field.
+    eventFacts: classifyEventFacts({ requestText, occasionTitle, occasionCategory, namedCampaign, audience })
   };
 }
 
