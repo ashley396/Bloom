@@ -1767,13 +1767,25 @@ test("deterministic notice: a phone supplied in the request wins over the shop p
   assert.ok(!out.caption.includes("16063319374"));
 });
 
-test("deterministic notice: with no phone in the request the shop's own stored phone is used (the authorized fallback)", () => {
+test("deterministic notice: with no phone AND no contact/order signal in the request, the shop's stored phone is NOT turned into an invented CTA", () => {
+  // Test F, Part 6 (the exact live defect): a plain closing notice with
+  // nothing asking for contact must not manufacture "Call <stored phone>
+  // to place an order." out of a fallback fact the florist never invoked.
   const out = buildDeterministicNoticeContent({
     requestText: "Juniper Floral is closing at 2:30 today.",
     shopName: "Juniper Floral",
     shopPhone: "555-606-7070"
   });
-  assert.equal(out.cta, "Call 555-606-7070 to place an order.");
+  assert.equal(out.cta, "");
+});
+
+test("deterministic notice: with no phone in the request but a real contact signal, the shop's own stored phone is used (the authorized fallback)", () => {
+  const out = buildDeterministicNoticeContent({
+    requestText: "Juniper Floral is closing at 2:30 today. Call with any questions.",
+    shopName: "Juniper Floral",
+    shopPhone: "555-606-7070"
+  });
+  assert.equal(out.cta, "Call 555-606-7070.");
 });
 
 // ---------------------------------------------------------------------------
@@ -1883,12 +1895,16 @@ test("deterministic notice: an early closing WITH a time still reads as Closing 
 });
 
 test("deterministic notice: a shop's bare-digit stored phone is formatted for the CTA too, never printed raw as the flyer's largest contact text", () => {
+  // Test F, Part 6: the request must itself justify a CTA (here, "Call for
+  // details") before the shop's stored fallback phone is used at all —
+  // this test's own point (bare-digit formatting) still needs a real case
+  // where that fallback phone actually gets used.
   const out = buildDeterministicNoticeContent({
-    requestText: "Harbor Blooms is closing at 2:30 today.",
+    requestText: "Harbor Blooms is closing at 2:30 today. Call for details.",
     shopName: "Harbor Blooms",
     shopPhone: "16063319374"
   });
-  assert.equal(out.cta, "Call 1-606-331-9374 to place an order.");
+  assert.equal(out.cta, "Call 1-606-331-9374.");
   assert.ok(!out.cta.includes("16063319374"), "the raw digit string must never reach the flyer");
   assert.ok(!out.caption.includes("16063319374"));
 });

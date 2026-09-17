@@ -152,6 +152,7 @@ import {
   detectInventedOperationalContent,
   requestSignalsPlainOperationalNotice,
   buildDeterministicNoticeContent,
+  classifyOperationalNoticeFacts,
   buildDeterministicCreativeRescueContent,
   extractShopNameFromRequestText,
   requestNeedsFlyerWording,
@@ -1282,7 +1283,7 @@ export function createMarketingStudioHandler(deps = {}) {
               candidate: captionGen.content,
               // Test D: a revision's promotion contract = the brief plus the
               // florist's own instruction (a code she types here is supplied).
-              canonicalConcept: { promotionFacts: classifyPromotionFacts({ requestText: `${currentItem.data.brief} ${instruction}` }), eventFacts: classifyEventFacts({ requestText: `${currentItem.data.brief} ${instruction}`, occasionTitle: currentItem.data.title }), promotionRequestText: `${currentItem.data.brief} ${instruction}` },
+              canonicalConcept: { promotionFacts: classifyPromotionFacts({ requestText: `${currentItem.data.brief} ${instruction}` }), eventFacts: classifyEventFacts({ requestText: `${currentItem.data.brief} ${instruction}`, occasionTitle: currentItem.data.title }), promotionRequestText: `${currentItem.data.brief} ${instruction}`, operationalNoticeFacts: classifyOperationalNoticeFacts(`${currentItem.data.brief} ${instruction}`), operationalNoticeRequestText: `${currentItem.data.brief} ${instruction}` },
               component: "caption",
               isRetryAttempt: true
             });
@@ -1569,7 +1570,7 @@ export function createMarketingStudioHandler(deps = {}) {
               inventoryEvidence: currentAsset.content?.grounded_in_inventory || [],
               candidate: gen.content,
               // Test D: the revision's promotion contract (brief + instruction).
-              canonicalConcept: { promotionFacts: classifyPromotionFacts({ requestText: `${currentItem.data.brief} ${instruction}` }), eventFacts: classifyEventFacts({ requestText: `${currentItem.data.brief} ${instruction}`, occasionTitle: currentItem.data.title }), promotionRequestText: `${currentItem.data.brief} ${instruction}` },
+              canonicalConcept: { promotionFacts: classifyPromotionFacts({ requestText: `${currentItem.data.brief} ${instruction}` }), eventFacts: classifyEventFacts({ requestText: `${currentItem.data.brief} ${instruction}`, occasionTitle: currentItem.data.title }), promotionRequestText: `${currentItem.data.brief} ${instruction}`, operationalNoticeFacts: classifyOperationalNoticeFacts(`${currentItem.data.brief} ${instruction}`), operationalNoticeRequestText: `${currentItem.data.brief} ${instruction}` },
               component: "caption",
               isRetryAttempt: true
             });
@@ -1659,7 +1660,7 @@ export function createMarketingStudioHandler(deps = {}) {
               // concept preview, and the CTA contract is enforced here too —
               // a revision could otherwise ship an invented code or an
               // over-limit CTA the renderer would then silently drop.
-              canonicalConcept: { ...(conceptPreview || {}), promotionFacts: classifyPromotionFacts({ requestText: `${currentItem.data.brief} ${instruction}` }), eventFacts: classifyEventFacts({ requestText: `${currentItem.data.brief} ${instruction}`, occasionTitle: currentItem.data.title }), promotionRequestText: `${currentItem.data.brief} ${instruction}` },
+              canonicalConcept: { ...(conceptPreview || {}), promotionFacts: classifyPromotionFacts({ requestText: `${currentItem.data.brief} ${instruction}` }), eventFacts: classifyEventFacts({ requestText: `${currentItem.data.brief} ${instruction}`, occasionTitle: currentItem.data.title }), promotionRequestText: `${currentItem.data.brief} ${instruction}`, operationalNoticeFacts: classifyOperationalNoticeFacts(`${currentItem.data.brief} ${instruction}`), operationalNoticeRequestText: `${currentItem.data.brief} ${instruction}` },
               component: "flyer_text",
               isRetryAttempt: true,
               graphicTextLimits: { ctaMaxChars: GRAPHIC_TEXT_LIMITS_DEFAULT.ctaMaxChars }
@@ -1955,7 +1956,7 @@ export function createMarketingStudioHandler(deps = {}) {
             inventoryEvidence: currentAsset.content?.grounded_in_inventory || [],
             candidate: gen.content,
             // Test D: the revision's promotion contract (brief + instruction).
-            canonicalConcept: { promotionFacts: classifyPromotionFacts({ requestText: `${currentItem.data.brief} ${instruction}` }), eventFacts: classifyEventFacts({ requestText: `${currentItem.data.brief} ${instruction}`, occasionTitle: currentItem.data.title }), promotionRequestText: `${currentItem.data.brief} ${instruction}` },
+            canonicalConcept: { promotionFacts: classifyPromotionFacts({ requestText: `${currentItem.data.brief} ${instruction}` }), eventFacts: classifyEventFacts({ requestText: `${currentItem.data.brief} ${instruction}`, occasionTitle: currentItem.data.title }), promotionRequestText: `${currentItem.data.brief} ${instruction}`, operationalNoticeFacts: classifyOperationalNoticeFacts(`${currentItem.data.brief} ${instruction}`), operationalNoticeRequestText: `${currentItem.data.brief} ${instruction}` },
             component: "caption",
             isRetryAttempt: true
           });
@@ -2886,6 +2887,15 @@ export function createMarketingStudioHandler(deps = {}) {
             namedCampaign: socialConceptNamedCampaign,
             audience: socialConceptAudience
           });
+          // Test F, Part 3: the structured operational-notice contract —
+          // computed even here, on the AI-generation path, because a
+          // request can carry operational-notice shape (e.g. bare "close")
+          // without tripping requestSignalsPlainOperationalNotice's
+          // stricter routing signal, so it can still reach this branch.
+          // Defense in depth: the evaluator below checks the AI caption
+          // against this contract exactly like it checks the deterministic
+          // notice builder's own output.
+          const socialConceptOperationalNoticeFacts = classifyOperationalNoticeFacts(currentItem.data.brief);
           const socialConceptCopyVoice = classifyCopyVoice({
             creativeMode: socialConceptCreativeMode,
             namedCampaign: socialConceptNamedCampaign,
@@ -2917,7 +2927,8 @@ export function createMarketingStudioHandler(deps = {}) {
               messageIntent: socialConceptMessageIntent,
               userTemporalIntent: socialConceptUserTemporalIntent,
               promotionFacts: socialConceptPromotionFacts,
-              eventFacts: socialConceptEventFacts
+              eventFacts: socialConceptEventFacts,
+              operationalNoticeFacts: socialConceptOperationalNoticeFacts
             }
           };
           copyGen = await generateSocialPost(socialPostArgs);
@@ -2952,7 +2963,7 @@ export function createMarketingStudioHandler(deps = {}) {
           // classified above travels with it, so the evaluator's narrow
           // everyday-caption shape guard can scope itself — never a second
           // classifier, and nothing else in the preview changes.
-          const captionConceptPreview = { audience: socialConceptAudience, messageIntent: socialConceptMessageIntent, promotionFacts: socialConceptPromotionFacts, eventFacts: socialConceptEventFacts };
+          const captionConceptPreview = { audience: socialConceptAudience, messageIntent: socialConceptMessageIntent, promotionFacts: socialConceptPromotionFacts, eventFacts: socialConceptEventFacts, operationalNoticeFacts: socialConceptOperationalNoticeFacts };
           let captionEval = evaluateMarketingOutput({
             route: "generate_content",
             request: currentItem.data.brief,
@@ -3357,6 +3368,9 @@ export function createMarketingStudioHandler(deps = {}) {
           namedCampaign: conceptNamedCampaign,
           audience: conceptAudience
         });
+        // Test F, Part 3: same defense-in-depth contract as the caption
+        // path above, for the on-image flyer wording.
+        const conceptOperationalNoticeFacts = classifyOperationalNoticeFacts(currentItem.data.brief);
         // Test D, Part 5: the on-image text contract this branch will
         // persist (buildDeterministicCreativeDirection copies these same
         // defaults) — stated to the wording model and enforced by the
@@ -3400,6 +3414,7 @@ export function createMarketingStudioHandler(deps = {}) {
           // flyer-wording prompt and its evaluator.
           promotionFacts: conceptPromotionFacts,
           eventFacts: conceptEventFacts,
+          operationalNoticeFacts: conceptOperationalNoticeFacts,
           ctaMaxChars: flyerTextLimits.ctaMaxChars
         };
 

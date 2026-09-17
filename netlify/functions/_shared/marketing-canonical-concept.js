@@ -33,7 +33,7 @@
  */
 
 import { SOCIAL_POST_OBJECTIVES } from "./ai-creative-engine.js";
-import { BEREAVEMENT_CONTEXT_RE, requestSignalsRealPromotion, requestSignalsIntentionalInventoryUse, sentencesOf, normalizeDiscountWording } from "./marketing-content-revision.js";
+import { BEREAVEMENT_CONTEXT_RE, requestSignalsRealPromotion, requestSignalsIntentionalInventoryUse, sentencesOf, normalizeDiscountWording, classifyOperationalNoticeFacts } from "./marketing-content-revision.js";
 
 export const CANONICAL_CONCEPT_VERSION = 1;
 
@@ -1102,7 +1102,11 @@ export function buildCanonicalConcept({
     promotionFacts: classifyPromotionFacts({ requestText, promotionIntent }),
     // Test E: the structured event-reminder contract (null for a
     // non-event). Same discipline as promotionFacts: not an identity field.
-    eventFacts: classifyEventFacts({ requestText, occasionTitle, occasionCategory, namedCampaign, audience })
+    eventFacts: classifyEventFacts({ requestText, occasionTitle, occasionCategory, namedCampaign, audience }),
+    // Test F: the structured operational-notice contract (null for a
+    // request with no operational category or fact at all). Same
+    // discipline as promotionFacts/eventFacts: not an identity field.
+    operationalNoticeFacts: classifyOperationalNoticeFacts(requestText)
   };
 }
 

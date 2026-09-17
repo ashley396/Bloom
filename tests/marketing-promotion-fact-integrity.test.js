@@ -561,7 +561,11 @@ test("Part 8: Test C photo-forward routing is untouched — no contract, no prom
 // ---------------------------------------------------------------------------
 
 test("review 1: the deterministic notice/rescue CTA (36 chars) meets the on-image contract at the handoff — fitted to the phone, never silently dropped by the renderer", async () => {
-  const notice = buildDeterministicNoticeContent({ requestText: "We are closing early at 3 PM today.", shopName: SHOP, shopPhone: PHONE });
+  // Test F, Part 6: the shop's own stored phone only becomes a CTA when the
+  // request itself justifies contact — "Call to place an order" supplies
+  // both the contact signal and the order language this over-limit CTA
+  // needs to reproduce.
+  const notice = buildDeterministicNoticeContent({ requestText: "We are closing early at 3 PM today. Call to place an order.", shopName: SHOP, shopPhone: PHONE });
   assert.ok(notice.cta.length > CTA_LIMIT, `sanity: the deterministic notice CTA is over the limit as shipped (${notice.cta})`);
   assert.equal(fitCtaToLimit(notice.cta, CTA_LIMIT, { shopPhone: null, ctaIntent: "none" }), `Call ${PHONE}`, "the phone FACT is kept regardless of intent");
   // Through the real handler: a plain operational notice persists a CTA within the contract that still carries the phone.
@@ -572,14 +576,19 @@ test("review 1: the deterministic notice/rescue CTA (36 chars) meets the on-imag
     ? { ok: true, json: async () => ({ success: true, result: { image: Buffer.from("fake-jpeg-bytes").toString("base64") } }) }
     : { ok: true, json: async () => ({ success: true, result: { response: "{}" } }) });
   try {
-    const client = createFakeSupabaseClient(responsesFor("We are closing early at 3 PM today."), { storage: createFakeSupabaseStorage({}) });
+    const client = createFakeSupabaseClient(responsesFor("We are closing early at 3 PM today. Call to place an order."), { storage: createFakeSupabaseStorage({}) });
     const handler = createMarketingStudioHandler(floristDeps(client));
     const res = await handler(event("generate_content", { content_item_id: "item-1" }));
     assert.equal(res.statusCode, 200, res.body);
     const content = client.calls.find((c) => c.table === "ai_generated_assets" && c.ops.some((op) => op[0] === "insert")).payload.content;
     assert.ok(content.cta.length <= CTA_LIMIT, content.cta);
     assert.match(content.cta, /606-506-4039/, "the phone survives on the graphic's CTA");
-    assert.match(content.body, /closing early/i, "the notice's real wording is untouched");
+    // Test F, Part 1: "3 PM" is now a recognized time (previously only a
+    // colon format like "3:00 PM" matched), so the body states the actual
+    // time instead of the vaguer "closing early" — the headline still
+    // reads "Closing Early Today".
+    assert.match(content.headline, /closing early/i, "the headline still reads Closing Early");
+    assert.match(content.body, /closing at 3\s*pm/i, "the notice's real wording keeps the concrete supplied time");
   } finally {
     globalThis.fetch = originalFetch;
   }

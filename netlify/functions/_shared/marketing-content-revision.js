@@ -64,7 +64,18 @@ const DATE_RE =
 // time is exactly as fact-sensitive as a date, and got its own regex only
 // after a real gap was found: a time-only mention (no date attached) was
 // previously not tracked as a fact at all.
-const TIME_RE = /\b([01]?\d|2[0-3]):[0-5]\d\s*(?:am|pm|AM|PM)?\b/g;
+// Test F, Part 1 (live-found defect): the colon was mandatory, so a real
+// closing time typed the way almost everyone actually types it — "2 PM",
+// "2PM", "9 AM" — never matched at all, and the florist's stated time was
+// silently dropped everywhere this regex is the source of truth (here,
+// extractFactTokens' missing-fact safety net, and buildDeterministicNotice
+// Content's own signalsEarlyClosing check). Two alternatives, not a special
+// case for any one literal string: an am/pm-suffixed hour (colon+minutes
+// optional — "2 PM", "2:30 PM", "2:30pm" all match this branch) OR a bare
+// H:MM/HH:MM with no am/pm at all (a 24-hour "14:30" is still a real time
+// even with nothing to disambiguate it). Case-insensitive so "2 pm"/"2 PM"/
+// "2 Pm" are all recognized the same way.
+const TIME_RE = /\b(?:[01]?\d|2[0-3])(?::[0-5]\d)?\s*(?:am|pm)\b|\b(?:[01]?\d|2[0-3]):[0-5]\d\b/gi;
 
 // Test D: a stated discount ("20% off", "$5 off") is a fact exactly like
 // a price or a time — it must survive every rewrite verbatim.
@@ -209,8 +220,30 @@ export function buildWordingRevisionRequestText({ instruction, brief, priorText 
 // Adding them is safe in both directions: PERMANENT_CLOSURE_INTENT_RE
 // still overrides (requestSignalsTemporaryClosure requires it NOT match),
 // and a scheduled day is by definition a temporary, scheduled change.
+// Test F, Part 1/5 (live-found gap, same class as the "close" base-form fix
+// already applied to FLYER_WORDING_KEYWORDS_RE elsewhere in this file):
+// this regex only matched "closing"/"closed", never the bare present/
+// future form "close"/"closes" — a request that reaches this function
+// already routed as a plain operational notice (see
+// requestSignalsPlainOperationalNotice, deliberately NOT widened the same
+// way — it still requires "closing"/"closed" to route here at all, which
+// keeps this file's existing "close"-phrased AI-generation-path tests
+// exercising that path exactly as they always have) must still be
+// categorized correctly once it IS here, so "…will close at 5:30 today…"
+// reads as a real closing notice rather than falling through to the
+// generic Store Notice bucket and losing the closing meaning entirely.
+// Independent-review fix: the bare "close" form is genuinely ambiguous —
+// "we are close TO selling out" / "we're close BY" use the adjective sense
+// (near/nearby), never the verb (the shop shutting). Reproduced as a real
+// false positive: "We are close to selling out on peonies today, order
+// now!" was classified as a "closed" operational notice purely because
+// "close" and "today" both appeared in the sentence. The negative
+// lookahead excludes exactly that adjective construction while leaving
+// every verb usage ("close at 5:30", "close early", "will close today")
+// matching exactly as before — "closing"/"closes"/"closed" never have this
+// ambiguity and are left unguarded.
 const TEMPORARY_CLOSURE_SIGNAL_RE =
-  /\b(clos(?:ing|ed))\b[^.!?\n]{0,30}\b(early|today|tonight|tomorrow|this afternoon|this (?:mon|tues|wednes|thurs|fri|satur|sun)day|on (?:mon|tues|wednes|thurs|fri|satur|sun)day|for the (?:day|holiday|afternoon)|temporarily|briefly|for a few hours)\b|\btemporarily closed\b|\bclosing at\b[^.!?\n]{0,20}\b(today|tonight|tomorrow|this afternoon|(?:mon|tues|wednes|thurs|fri|satur|sun)day)\b/i;
+  /\b(clos(?:e(?!\s+(?:to|by)\b)|es|ing|ed))\b[^.!?\n]{0,30}\b(early|today|tonight|tomorrow|this afternoon|this (?:mon|tues|wednes|thurs|fri|satur|sun)day|on (?:mon|tues|wednes|thurs|fri|satur|sun)day|for the (?:day|holiday|afternoon)|temporarily|briefly|for a few hours)\b|\btemporarily closed\b|\bclos(?:e(?!\s+(?:to|by)\b)|es|ing|ed) at\b[^.!?\n]{0,20}\b(today|tonight|tomorrow|this afternoon|(?:mon|tues|wednes|thurs|fri|satur|sun)day)\b/i;
 
 // If ANY of these appear in the same request, the florist has genuinely
 // said this is permanent — the guard must never override an explicit,
@@ -464,6 +497,119 @@ export function detectInventedOperationalContent(requestText, generatedText) {
   return requestSignalsPlainOperationalNotice(requestText) && textAddsInventedEmbellishment(generatedText);
 }
 
+// Test F, Part 3 (Ashley's own explicit requirement — defense in depth,
+// never trust the deterministic builder alone): the actual invented
+// phrasing a model can drift into on an operational notice specifically —
+// a fabricated reason no one gave ("due to renovations," "for staffing
+// reasons"), a fabricated reopening promise ("we'll reopen tomorrow,"
+// "back Monday," "see you again soon"), or fabricated NEW hours
+// ("new hours are 9-5," "now open until 8pm") when the request never
+// changed its hours at all. Deliberately narrow, single-purpose regexes —
+// each one only fires when the SAME language is absent from the
+// florist's own request, so a reason/reopening/hours detail the florist
+// genuinely supplied is never flagged.
+const OPERATIONAL_REASON_WORDS_RE =
+  /\b(?:renovations?|renovating|remodel(?:ing)?|family emergency|an? emergency|maintenance|short[- ]staffed|staffing (?:issue|reason)s?|(?:bad|severe) weather|(?:a )?storm|power outage|inventory count|deep clean(?:ing)?|a funeral|a wedding|a private event)\b/i;
+const OPERATIONAL_REOPENING_RE =
+  /\bre[- ]?open(?:ing|s|ed)?\b|\bback (?:tomorrow|tonight|soon|later|open|monday|tuesday|wednesday|thursday|friday|saturday|sunday)\b|\bsee you (?:again )?(?:soon|tomorrow)\b|\bopen again\b/i;
+const OPERATIONAL_NEW_HOURS_RE = /\bnew hours\b|\bhours (?:are|will be) now\b|\bnow open until\b|\bopen (?:from|until) \d/i;
+const OPENING_STATUS_WORD_RE = /\bopen(?:ing)?\b/i;
+const CLOSED_STATUS_WORD_RE = /\bclosed\b/i;
+
+/** Test F, Part 3: the OTHER direction of the same guarantee
+ * factsPreserved()/extractFactTokens() already give ordinary facts (phone/
+ * price/date/time) — here scoped to the operational-notice contract
+ * specifically, so a time can go MISSING or get silently swapped for a
+ * different one, and a stated "today"/weekday reference can vanish,
+ * without either showing up as a generic missing-fact-token diff. Returns
+ * `[]` (never fires) when the request carries no operational-notice
+ * contract at all — a non-operational request is governed by the ordinary
+ * facts-preservation guard, not this one. */
+export function detectMissingOperationalNoticeFacts({ generatedText, operationalNoticeFacts = null } = {}) {
+  if (!operationalNoticeFacts || typeof operationalNoticeFacts !== "object") return [];
+  const text = String(generatedText || "");
+  const f = operationalNoticeFacts;
+  const out = [];
+
+  if (f.time) {
+    if (!text.includes(f.time)) {
+      const anotherTime = firstMatch(TIME_RE, text);
+      out.push({ code: anotherTime ? "operational_time_altered" : "operational_time_missing", detail: f.time });
+    }
+  }
+  if (f.dayLabel) {
+    const dayStillReads = new RegExp(`\\b${f.dayLabel}\\b`, "i").test(text) || (f.day && new RegExp(`\\b${escapeRegExpLiteral(f.day)}\\b`, "i").test(text));
+    if (!dayStillReads) out.push({ code: "operational_day_missing", detail: f.dayLabel });
+  }
+  return out;
+}
+
+function escapeRegExpLiteral(s) {
+  return String(s || "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+/** Test F, Part 3/6: the fact-invention direction — a plain operational
+ * notice must never come back reading as a DIFFERENT operational state
+ * than the one the florist described (a partial "closing at TIME" turned
+ * into a full-day "closed," or a closing notice turned into talk of
+ * opening), and must never acquire a reason, a reopening promise, or new
+ * store hours the request never supplied. Every check compares against
+ * the request text itself, so anything the florist genuinely wrote is
+ * always allowed through. Returns `[]` when the request carries no
+ * operational-notice contract at all. */
+export function detectUnsupportedOperationalNoticeClaims({ generatedText, requestText = "", operationalNoticeFacts = null } = {}) {
+  if (!operationalNoticeFacts || typeof operationalNoticeFacts !== "object") return [];
+  const text = String(generatedText || "");
+  const request = String(requestText || "");
+  const f = operationalNoticeFacts;
+  const out = [];
+
+  // "closing at TIME" (a partial, early closing) must never be
+  // misstated as a full-day "closed" — Ashley's own explicit contract
+  // requirement: "Closed Today" must FAIL preservation for a request that
+  // said "closing at 2 PM today."
+  if (f.operation === "closing" && CLOSED_STATUS_WORD_RE.test(text) && !/\bclosing\b/i.test(text) && !(f.time && text.includes(f.time))) {
+    out.push({ code: "operational_status_altered_to_closed", detail: f.time || null });
+  }
+
+  // A closing/closed request must never come back talking about opening
+  // instead — the two states must never be transformed into one another.
+  if ((f.operation === "closing" || f.operation === "closed") && OPENING_STATUS_WORD_RE.test(text) && !OPENING_STATUS_WORD_RE.test(request)) {
+    out.push({ code: "operational_status_altered_to_opening", detail: null });
+  }
+
+  if (OPERATIONAL_REOPENING_RE.test(text) && !OPERATIONAL_REOPENING_RE.test(request)) {
+    out.push({ code: "operational_reopening_invented", detail: null });
+  }
+
+  const reasonMatch = text.match(OPERATIONAL_REASON_WORDS_RE);
+  if (reasonMatch && !new RegExp(escapeRegExpLiteral(reasonMatch[0]), "i").test(request)) {
+    out.push({ code: "operational_reason_invented", detail: reasonMatch[0] });
+  }
+
+  if (f.operation !== "hours_change" && OPERATIONAL_NEW_HOURS_RE.test(text) && !OPERATIONAL_NEW_HOURS_RE.test(request)) {
+    out.push({ code: "operational_hours_invented", detail: null });
+  }
+
+  return out;
+}
+
+const OPERATIONAL_NOTICE_FACT_REASON_TEXT = {
+  operational_time_missing: (d) => `The stated time ("${d}") is missing from the generated text — the exact supplied time must always survive.`,
+  operational_time_altered: (d) => `The stated time ("${d}") was replaced with a different time — never change a supplied time, only ever state it exactly as given.`,
+  operational_day_missing: (d) => `The stated day ("${d}") is missing from the generated text — a supplied "today"/weekday reference must always survive.`,
+  operational_status_altered_to_closed: () => `A partial, timed closing was rewritten as a full-day "closed" — that misstates the shop's hours to its customers.`,
+  operational_status_altered_to_opening: () => `A closing notice was rewritten as an opening notice — closing and opening are never interchangeable.`,
+  operational_reopening_invented: () => `This invents a reopening promise ("reopening," "back tomorrow," "see you soon") the request never gave.`,
+  operational_reason_invented: (d) => `This invents a reason for the change ("${d}") the request never gave.`,
+  operational_hours_invented: () => `This invents specific new store hours the request never supplied.`
+};
+
+export function operationalNoticeFactReasonText(entry) {
+  const build = OPERATIONAL_NOTICE_FACT_REASON_TEXT[entry?.code];
+  return build ? build(entry.detail) : "This drops or alters a supplied operational fact.";
+}
+
 // Real, live-found failure (Ashley's own real branch-deploy test): once
 // the guard above correctly rejects a model's response, simply reverting
 // the content item to "idea" and making the florist click "Ask Lily to
@@ -563,6 +709,15 @@ const DEADLINE_SIGNAL_RE = /\b(deadline|order by|cutoff|last day to order)\b/i;
 // closing, previously unhandled entirely (fell into the generic bucket
 // and lost the time).
 const LATE_OPENING_RE = /\bopen(?:ing)?\b[^.!?\n]{0,30}\b(late|later|delayed)\b|\bdelayed opening\b/i;
+// Test F, Part 2/5: "opening at 2 PM today" (a plain stated opening time,
+// no "late"/"delayed" wording at all) is a materially different state from
+// LATE_OPENING_RE above — it must never be conflated with a delayed
+// opening, and it must never be lost to the generic "Store Notice" bucket
+// either (which states the time but never says the shop is OPENING, only
+// that there's "an update"). Gated on a real supplied time/date, exactly
+// like the generic bucket below it, so a bare unrelated mention of "open"
+// ("we're open every day") never fires this on its own.
+const OPENING_ANNOUNCEMENT_RE = /\bopen(?:ing)?\b/i;
 
 function firstMatch(re, text) {
   const m = String(text || "").match(re);
@@ -659,6 +814,92 @@ export function formatStoredPhoneForDisplay(raw) {
   return s;
 }
 
+// Test F, Part 6 (Ashley's own framing, verbatim): "It wasn't factually
+// false, but it's not what a simple closing notice asked Florisyn to
+// communicate. The finished product should understand the difference
+// between informing customers and selling to customers." The live defect
+// this fixes: "Let customers know we will be closing at 2 PM today" — no
+// order/purchase language, no phone typed, nothing asking for a call —
+// came back with an invented "Call 606-506-4039 to place an order." CTA
+// built from the SHOP'S OWN STORED FALLBACK phone, never mentioned in the
+// request at all. ORDER_LANGUAGE_RE decides whether "to place an order" is
+// honest wording (the request itself used order/purchase language);
+// CONTACT_SIGNAL_RE decides whether inviting a call is honest at all (the
+// request itself asked for contact). A phone the florist TYPED into this
+// exact request is always kept — that is an unambiguous, deliberate
+// inclusion on their part, independent of either signal.
+const ORDER_LANGUAGE_RE = /\b(?:order|purchase|buy|shop now)\b/i;
+const CONTACT_SIGNAL_RE = /\b(?:call|contact|reach us|questions|give us a call|text us)\b/i;
+
+/** The operational-notice CTA, or "" when nothing in the request justifies
+ * one — never an invented generic phrase ("Contact us for details."), and
+ * never the shop's stored fallback phone dressed up as a call to action
+ * the florist never asked for. Pure. */
+function buildOperationalNoticeCta({ text, requestPhone, phone }) {
+  if (!phone) return "";
+  const wantsOrderLanguage = ORDER_LANGUAGE_RE.test(text);
+  const phoneIsJustified = Boolean(requestPhone) || wantsOrderLanguage || CONTACT_SIGNAL_RE.test(text);
+  if (!phoneIsJustified) return "";
+  return wantsOrderLanguage ? `Call ${phone} to place an order.` : `Call ${phone}.`;
+}
+
+/** The CTA sentence folded mid-caption after "Customers can " — same
+ * wording, just de-capitalized so it reads as a clause, not a second
+ * standalone sentence starting with a capital letter. Pure. */
+function ctaAsCustomerClause(cta) {
+  const trimmed = String(cta || "").trim();
+  if (!trimmed) return "";
+  return trimmed.charAt(0).toLowerCase() + trimmed.slice(1);
+}
+
+export const OPERATIONAL_NOTICE_FACTS_VERSION = 1;
+
+/**
+ * Test F, Part 3 ("do not rely solely on the deterministic notice builder
+ * being correct — add an independent evaluator/fact-preservation layer"):
+ * the structured operational-notice contract, built from the request text
+ * ONLY — every field stays null unless the request itself stated it. This
+ * is the ONE place that decides which operational category a request
+ * belongs to; buildDeterministicNoticeContent below consumes it directly
+ * (never a second, competing categorization), and
+ * detectMissingOperationalNoticeFacts/detectUnsupportedOperationalNotice
+ * Claims check ANY generated or revised text — deterministic or AI —
+ * against this same contract, so a revision that runs back through the AI
+ * path is held to the exact fact-preservation bar the deterministic
+ * builder already meets.
+ *
+ * Shape: { version, operation: "closing"|"closed"|"opening_late"|
+ * "opening"|"deadline"|"hours_change"|"notice"|null, time, date, day,
+ * dayLabel, requestPhone }.
+ */
+export function classifyOperationalNoticeFacts(requestText) {
+  const text = String(requestText || "");
+  const time = firstMatch(TIME_RE, text);
+  const date = firstMatch(DATE_RE, text);
+  const requestPhone = firstMatch(PHONE_RE, text);
+  const dayMatch = text.match(DAY_QUALIFIER_RE);
+  const day = dayMatch ? dayMatch[1] : null;
+  const dayLabel = headlineDayWord(day);
+
+  let operation = null;
+  if (requestSignalsTemporaryClosure(text)) {
+    operation = signalsEarlyClosing(text, time) ? "closing" : "closed";
+  } else if (LATE_OPENING_RE.test(text)) {
+    operation = "opening_late";
+  } else if (DEADLINE_SIGNAL_RE.test(text)) {
+    operation = "deadline";
+  } else if (HOURS_CHANGE_SIGNAL_RE.test(text)) {
+    operation = "hours_change";
+  } else if (OPENING_ANNOUNCEMENT_RE.test(text) && (time || date)) {
+    operation = "opening";
+  } else if (/\bannounc(?:e|ing|ement)\b/i.test(text) || requestPhone || time || date) {
+    operation = "notice";
+  }
+  if (!operation) return null;
+
+  return { version: OPERATIONAL_NOTICE_FACTS_VERSION, operation, time, date, day, dayLabel, requestPhone };
+}
+
 export function buildDeterministicNoticeContent({ requestText, shopName, shopPhone } = {}) {
   const text = String(requestText || "");
   // shopName is the ONLY trusted source of the shop's own name — never
@@ -672,59 +913,83 @@ export function buildDeterministicNoticeContent({ requestText, shopName, shopPho
   // exactly as written; only the shop profile's stored fallback is
   // formatted for display (a bare digit string is unreadable on a flyer).
   const phone = firstMatch(PHONE_RE, text) || (shopPhone ? formatStoredPhoneForDisplay(shopPhone) : null) || null;
-  const time = firstMatch(TIME_RE, text);
-  const date = firstMatch(DATE_RE, text);
   const who = name || "We";
   const verb = name ? "is" : "are";
 
+  // Test F, Part 3: category selection now lives in ONE place —
+  // classifyOperationalNoticeFacts — the same pure, request-only contract
+  // the independent evaluator below checks generated/revised text against.
+  // A request with no operational category or fact of its own can still
+  // earn the generic "Store Notice" bucket purely because the SHOP's own
+  // stored phone exists — that's a caller-provided fact the contract
+  // itself (request text only) never sees, so it's layered on here, never
+  // inside the contract.
+  const contract = classifyOperationalNoticeFacts(text);
+  const operation = contract?.operation || (phone ? "notice" : null);
+  if (!operation) return null;
+  const time = contract?.time ?? null;
+  const date = contract?.date ?? null;
+  const day = contract?.day ?? null;
+  const said = bodyQualifier(day);
+
   let headline, body;
-  if (requestSignalsTemporaryClosure(text)) {
-    const dayMatch = text.match(DAY_QUALIFIER_RE);
-    const day = dayMatch ? dayMatch[1] : null;
-    const said = bodyQualifier(day);
-    if (signalsEarlyClosing(text, time)) {
+  switch (operation) {
+    case "closing":
       headline = noticeHeadline("Closing Early", day);
       body = time
         ? `${who} ${verb} closing at ${time}${said ? ` ${said}` : ""}.`
         : `${who} ${verb} closing early${said ? ` ${said}` : ""}.`;
-    } else {
+      break;
+    case "closed":
       // Closed for the whole day, not closing early — say that instead.
       headline = noticeHeadline("Closed", day);
       body = `${who} ${verb} closed${said ? ` ${said}` : ""}.`;
+      break;
+    case "opening_late":
+      headline = noticeHeadline("Opening Late", day);
+      body = time
+        ? `${who} ${verb} opening at ${time}${said ? ` ${said}` : ""}.`
+        : `${who} ${verb} opening late${said ? ` ${said}` : ""}.`;
+      break;
+    case "opening":
+      headline = noticeHeadline("Opening", day);
+      body = time
+        ? `${who} ${verb} opening at ${time}${said ? ` ${said}` : ""}.`
+        : `${who} ${verb} opening on ${date}.`;
+      break;
+    case "deadline":
+      headline = "Order Deadline";
+      body = date
+        ? `Please place your order by ${date} to make sure it's ready in time.`
+        : time
+          ? `Please place your order by ${time} to make sure it's ready in time.`
+          : "Please place your order soon to make sure it's ready in time.";
+      break;
+    case "hours_change":
+      // An hours-change notice ("hours have changed... now open until
+      // 8pm") is its own honest category, checked in
+      // classifyOperationalNoticeFacts BEFORE the plain-opening category so
+      // a mention of "open" inside an hours-change sentence is never
+      // misread as a fresh opening announcement.
+      headline = "New Store Hours";
+      body = time
+        ? `${who} ${verb} updating our hours — starting at ${time}.`
+        : name
+          ? `${name} has updated store hours.`
+          : "We have updated store hours.";
+      break;
+    case "notice":
+    default: {
+      headline = "Store Notice";
+      const parts = [name ? `${name} has an update for you.` : "We have an update for you."];
+      if (time) parts.push(`Time: ${time}.`);
+      else if (date) parts.push(`Date: ${date}.`);
+      body = parts.join(" ");
+      break;
     }
-  } else if (LATE_OPENING_RE.test(text)) {
-    const dayMatch = text.match(DAY_QUALIFIER_RE);
-    const day = dayMatch ? dayMatch[1] : null;
-    const said = bodyQualifier(day);
-    headline = noticeHeadline("Opening Late", day);
-    body = time
-      ? `${who} ${verb} opening at ${time}${said ? ` ${said}` : ""}.`
-      : `${who} ${verb} opening late${said ? ` ${said}` : ""}.`;
-  } else if (DEADLINE_SIGNAL_RE.test(text)) {
-    headline = "Order Deadline";
-    body = date
-      ? `Please place your order by ${date} to make sure it's ready in time.`
-      : time
-        ? `Please place your order by ${time} to make sure it's ready in time.`
-        : "Please place your order soon to make sure it's ready in time.";
-  } else if (HOURS_CHANGE_SIGNAL_RE.test(text)) {
-    headline = "New Store Hours";
-    body = time
-      ? `${who} ${verb} updating our hours — starting at ${time}.`
-      : name
-        ? `${name} has updated store hours.`
-        : "We have updated store hours.";
-  } else if (/\bannounc(?:e|ing|ement)\b/i.test(text) || phone || time || date) {
-    headline = "Store Notice";
-    const parts = [name ? `${name} has an update for you.` : "We have an update for you."];
-    if (time) parts.push(`Time: ${time}.`);
-    else if (date) parts.push(`Date: ${date}.`);
-    body = parts.join(" ");
-  } else {
-    return null;
   }
 
-  const cta = phone ? `Call ${phone} to place an order.` : "Contact us for details.";
+  const cta = buildOperationalNoticeCta({ text, requestPhone: firstMatch(PHONE_RE, text), phone });
 
   // The general safety net described above: never let a category
   // branch's own phrasing silently lose a real fact the florist actually
@@ -735,7 +1000,7 @@ export function buildDeterministicNoticeContent({ requestText, shopName, shopPho
     body = `${body} ${missingFacts.join(" ")}`.trim();
   }
 
-  const caption = phone ? `${body} Customers can call ${phone} to place an order.` : body;
+  const caption = cta ? `${body} Customers can ${ctaAsCustomerClause(cta)}` : body;
 
   return { headline, body, cta, caption };
 }
@@ -3538,11 +3803,37 @@ export function evaluateMarketingOutput({
     reasonCodes.push("invented_operational_content");
   }
 
+  // Test F, Part 3: the structured operational-notice contract, independent
+  // of the deterministic builder — only runs when the concept carries one
+  // (a non-operational request never reaches these checks). Both
+  // directions, exactly like the promotion/event contracts below: the
+  // supplied time/day must survive, and the notice's real operational
+  // state (closing/closed/opening/hours-change) must never be rewritten
+  // into a different one, nor acquire an invented reason, reopening
+  // promise, or new hours.
+  const operationalNoticeFacts = canonicalConcept?.operationalNoticeFacts && typeof canonicalConcept.operationalNoticeFacts === "object" ? canonicalConcept.operationalNoticeFacts : null;
+  const operationalNoticeFactCodes = [];
+  const operationalNoticeRequestText = typeof canonicalConcept?.operationalNoticeRequestText === "string" ? canonicalConcept.operationalNoticeRequestText : requestText;
+  if (operationalNoticeFacts) {
+    checksRun.push("detectMissingOperationalNoticeFacts");
+    for (const m of detectMissingOperationalNoticeFacts({ generatedText: rawJoined, operationalNoticeFacts })) {
+      reasons.push(operationalNoticeFactReasonText(m));
+      reasonCodes.push("operational_notice_fact_missing");
+      operationalNoticeFactCodes.push(m.code);
+    }
+    checksRun.push("detectUnsupportedOperationalNoticeClaims");
+    for (const v of detectUnsupportedOperationalNoticeClaims({ generatedText: rawJoined, requestText: operationalNoticeRequestText, operationalNoticeFacts })) {
+      reasons.push(operationalNoticeFactReasonText(v));
+      reasonCodes.push("unsupported_operational_notice_claim");
+      operationalNoticeFactCodes.push(v.code);
+    }
+  }
+
   // A concept that carries ONLY the promotion contract (a revise_content
   // call on a legacy asset without a stored concept) has nothing for the
   // coherence checks to compare against — they stay skipped exactly as
   // before the contract existed.
-  const conceptHasCoherenceFields = Boolean(canonicalConcept) && Object.keys(canonicalConcept).some((k) => !["promotionFacts", "promotionRequestText", "eventFacts", "eventRequestText"].includes(k));
+  const conceptHasCoherenceFields = Boolean(canonicalConcept) && Object.keys(canonicalConcept).some((k) => !["promotionFacts", "promotionRequestText", "eventFacts", "eventRequestText", "operationalNoticeFacts", "operationalNoticeRequestText"].includes(k));
   if (conceptHasCoherenceFields && component === "flyer_text") {
     checksRun.push("detectConceptCoherenceMismatch");
     const mismatch = detectConceptCoherenceMismatch({
@@ -3717,12 +4008,12 @@ export function evaluateMarketingOutput({
   const blockingReasons = reasons.filter((r) => !advisoryReasonTexts.has(r));
 
   if (reasons.length) {
-    return { decision: isRetryAttempt ? "reject" : "retry", safeCandidate, repaired, repairedBy, reasons, blockingReasons, reasonCodes, weakCopyReasonCodes, promotionTermCodes, eventFactCodes, copyProfile, evidenceUsed, checksRun };
+    return { decision: isRetryAttempt ? "reject" : "retry", safeCandidate, repaired, repairedBy, reasons, blockingReasons, reasonCodes, weakCopyReasonCodes, promotionTermCodes, eventFactCodes, operationalNoticeFactCodes, copyProfile, evidenceUsed, checksRun };
   }
   if (repaired) {
-    return { decision: "repair", safeCandidate, repaired: true, repairedBy, reasons: [], blockingReasons: [], reasonCodes: [], weakCopyReasonCodes, promotionTermCodes, eventFactCodes, copyProfile, evidenceUsed, checksRun };
+    return { decision: "repair", safeCandidate, repaired: true, repairedBy, reasons: [], blockingReasons: [], reasonCodes: [], weakCopyReasonCodes, promotionTermCodes, eventFactCodes, operationalNoticeFactCodes, copyProfile, evidenceUsed, checksRun };
   }
-  return { decision: "pass", safeCandidate: candidate, repaired: false, repairedBy: [], reasons: [], blockingReasons: [], reasonCodes: [], weakCopyReasonCodes, promotionTermCodes, eventFactCodes, copyProfile, evidenceUsed, checksRun };
+  return { decision: "pass", safeCandidate: candidate, repaired: false, repairedBy: [], reasons: [], blockingReasons: [], reasonCodes: [], weakCopyReasonCodes, promotionTermCodes, eventFactCodes, operationalNoticeFactCodes, copyProfile, evidenceUsed, checksRun };
 }
 
 /**

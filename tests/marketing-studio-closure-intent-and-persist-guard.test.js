@@ -560,17 +560,39 @@ test("buildDeterministicNoticeContent: never hardcodes a shop name, time, or pho
     shopPhone: null
   });
   assert.equal(result.body, "Petal & Stem is closing at 4:15 this afternoon.");
-  assert.equal(result.cta, "Call 212-555-0199 to place an order.");
+  // Test F, Part 6: "Reach us at ..." is a genuine contact signal in the
+  // florist's own text, so the phone is kept — but the request never used
+  // order/purchase language, so the CTA stays a neutral "Call ...", never
+  // an invented "to place an order."
+  assert.equal(result.cta, "Call 212-555-0199.");
   assert.doesNotMatch(result.body, /Lilies in Bloom|2:30|606-506-4039/);
 });
 
-test("buildDeterministicNoticeContent: falls back to the shop's own real phone when the request doesn't repeat one", () => {
+// Test F, Part 6 (live-found defect): the exact failure was here — a
+// request with NO phone typed and NO order/contact language of its own
+// ("Let customers know we will be closing at 2 PM today") got an invented
+// "Call <shop's stored fallback phone> to place an order." CTA the florist
+// never asked for. The shop's own stored phone is a real, verified fact,
+// but using it to invent an ordering solicitation the request never
+// requested is exactly the defect Ashley's fix targets — a plain closing
+// notice with nothing to justify a call-to-action now gets none.
+test("buildDeterministicNoticeContent: with no phone or contact/order signal in the request, the shop's stored fallback phone is NOT turned into an invented CTA", () => {
   const result = buildDeterministicNoticeContent({
     requestText: "We're closing early today.",
     shopName: "Test Florals",
     shopPhone: "555-000-1111"
   });
-  assert.equal(result.cta, "Call 555-000-1111 to place an order.");
+  assert.equal(result.cta, "", "no phone was typed and nothing in the request signals a call is wanted — the CTA must be empty, not invented");
+  assert.doesNotMatch(result.caption, /555-000-1111/, "the stored fallback phone must not silently appear when the request never asked for contact");
+});
+
+test("buildDeterministicNoticeContent: the shop's stored fallback phone IS used when the request's own text asks for contact", () => {
+  const result = buildDeterministicNoticeContent({
+    requestText: "We're closing early today. Give us a call with any questions.",
+    shopName: "Test Florals",
+    shopPhone: "555-000-1111"
+  });
+  assert.equal(result.cta, "Call 555-000-1111.", "the request itself invited contact, so the shop's real phone is a justified CTA — but never dressed up as an ordering solicitation the request didn't ask for");
 });
 
 test("buildDeterministicNoticeContent: an hours-change notice gets its own honest category, not misread as a closing", () => {
@@ -630,7 +652,10 @@ test("buildDeterministicNoticeContent (changed-hours notice): the real new time 
 
 test("buildDeterministicNoticeContent: a notice with NO phone number anywhere (request or shop record) never invents one", () => {
   const result = buildDeterministicNoticeContent({ requestText: "We're closing early today.", shopName: "Test Florals", shopPhone: null });
-  assert.equal(result.cta, "Contact us for details.");
+  // Test F, Part 6: with no phone at all, there is nothing to build a CTA
+  // from — the empty string, never a generic invented phrase like "Contact
+  // us for details."
+  assert.equal(result.cta, "");
   assert.doesNotMatch(result.caption, /\d{3}[-.\s]\d{3}[-.\s]\d{4}/, "no phone-shaped number must appear anywhere if none was ever given");
 });
 
