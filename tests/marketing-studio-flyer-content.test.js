@@ -783,7 +783,12 @@ test("generate_content (real dispatch): a text_post never gets asked for a photo
 });
 
 test("generate_content (real dispatch): photo_choice 'upload' uses the florist's own real photo as the flyer's background — no AI image call, no AI-image disclosure", async () => {
-  const uploadCopy = { ...CLOSING_COPY, body: "Fresh roses just arrived! Stop by today.", visual_brief: "A bright, romantic bouquet of roses on a marble counter." };
+  // Test G: CLOSING_COPY's own cta ("Call 606-506-4039", bare) is
+  // authorized for ITS closing scenario but not for this "fresh roses"
+  // one — cleared here so the caption isn't rejected for an unauthorized
+  // CTA unrelated to what this test is actually about (upload-photo
+  // disclosure).
+  const uploadCopy = { ...CLOSING_COPY, body: "Fresh roses just arrived! Stop by today.", cta: "", visual_brief: "A bright, romantic bouquet of roses on a marble counter." };
   const uploadFlyerCopy = { headline: "Fresh Roses Just In!", body: "Stop by for a fresh, romantic bouquet today.", cta: "Visit us today" };
   const mock = mockCloudflare([uploadCopy, uploadFlyerCopy]);
   try {
@@ -926,7 +931,10 @@ test("generate_content (real dispatch): the photo-choice ask includes a shortlis
 });
 
 test("generate_content (real dispatch): photo_choice 'reuse' reuses a prior real photo's exact url — no new AI image call, no new storage upload, no duplicate website_media row", async () => {
-  const reuseCopy = { ...CLOSING_COPY, body: "Fresh roses just arrived! Stop by today." };
+  // Test G: CLOSING_COPY's own cta is authorized for its closing scenario,
+  // not this "fresh roses" one — cleared so the caption isn't rejected for
+  // an unauthorized CTA unrelated to what this test is about (photo reuse).
+  const reuseCopy = { ...CLOSING_COPY, body: "Fresh roses just arrived! Stop by today.", cta: "" };
   const reuseFlyerCopy = { headline: "Fresh Roses Just In!", body: "Stop by for a fresh, romantic bouquet today.", cta: "Visit us today" };
   const mock = mockCloudflare([reuseCopy, reuseFlyerCopy]);
   try {

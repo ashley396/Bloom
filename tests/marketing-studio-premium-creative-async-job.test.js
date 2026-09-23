@@ -58,7 +58,10 @@ function ordinaryCopyJson() {
     platform: "facebook",
     headline: "Beautiful Blooms",
     body: "A little something to brighten someone's day.",
-    cta: "Shop now",
+    // Test G: "Shop now" is CTA-shaped and this fixture's request never
+    // authorized one — this file tests the premium async job
+    // architecture, not CTA policy, so the cta field is left empty here.
+    cta: "",
     visual_brief: "A bright seasonal bouquet.",
     creative_brief: { primary_subject: "a bright bouquet", mood: "cheerful", lighting: "natural", composition: "close-up", floral_style: "garden-style" },
     objective: "awareness",

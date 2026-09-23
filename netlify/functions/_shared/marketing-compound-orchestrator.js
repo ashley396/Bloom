@@ -41,6 +41,7 @@ import { generateSocialPost, generateVideoConcept, persistGeneratedAsset } from 
 import { buildImagePrompt } from "./ai-image-engine.js";
 import { runMarketingImageQuality } from "./marketing-image-quality.js";
 import { evaluateMarketingOutput } from "./marketing-content-revision.js";
+import { determineCtaAuthorization } from "./marketing-canonical-concept.js";
 import { computeDisclosureFields } from "./creative-ai/disclosure-policy.js";
 import { transformMasterImageForPlatforms } from "./creative-ai/media-transform-executor.js";
 import { planVideoRender } from "./marketing-video-render-engine.js";
@@ -577,6 +578,13 @@ async function runCompoundStep(client, step, ctx) {
       // deterministic-repair-always pattern as marketing-studio.js's own
       // generate_content.
       if (copyGen.ok) {
+        // Test G: the same CTA-authorization question generate_content's
+        // own path already answers — this compound ("Ask Lily") path had
+        // no canonicalConcept at all, so an unauthorized CTA-shaped
+        // sentence (the only content in a short caption, sometimes) would
+        // otherwise be stripped down to an empty caption with nothing to
+        // replace it, rather than simply never inventing the CTA in the
+        // first place further upstream.
         const compoundCaptionEval = evaluateMarketingOutput({
           route: "compound.createContentItem",
           request: requestText,
@@ -584,7 +592,8 @@ async function runCompoundStep(client, step, ctx) {
           inventoryEvidence: ctx.inventoryBrief?.sources || [],
           candidate: copyGen.content,
           component: "caption",
-          isRetryAttempt: true
+          isRetryAttempt: true,
+          canonicalConcept: { ctaAuthorized: determineCtaAuthorization({ requestText }) }
         });
         if (compoundCaptionEval.safeCandidate) {
           copyGen.content.headline = compoundCaptionEval.safeCandidate.headline;

@@ -33,7 +33,7 @@
  */
 
 import { SOCIAL_POST_OBJECTIVES } from "./ai-creative-engine.js";
-import { BEREAVEMENT_CONTEXT_RE, requestSignalsRealPromotion, requestSignalsIntentionalInventoryUse, sentencesOf, normalizeDiscountWording, classifyOperationalNoticeFacts } from "./marketing-content-revision.js";
+import { BEREAVEMENT_CONTEXT_RE, requestSignalsRealPromotion, requestSignalsIntentionalInventoryUse, sentencesOf, normalizeDiscountWording, classifyOperationalNoticeFacts, requestSignalsCtaLanguage } from "./marketing-content-revision.js";
 
 export const CANONICAL_CONCEPT_VERSION = 1;
 
@@ -258,6 +258,51 @@ export function classifyCtaIntent(ctaText) {
     if (rule.re.test(text)) return rule.intent;
   }
   return "contact_general";
+}
+
+/**
+ * Test G ("CTA-authorization / casual-social fix"): the ONE place that
+ * decides whether a CTA is authorized for this post at all — completely
+ * separate from classifyCtaIntent above, which only classifies the FLAVOR
+ * of a CTA that's already known to exist. Ashley's own architectural rule,
+ * verbatim: "Fact availability and CTA authorization are separate
+ * concepts... A verified shop fact... may be available to the system
+ * without being appropriate to insert into every post." A verified phone
+ * number, URL, address, or delivery/ordering capability is never, by
+ * itself, this function's input — only real signals of INTENT are:
+ *
+ *   - an explicit CTA the caller already classified as real (a non-"none"
+ *     ctaIntent, or ctaText that classifies as one)
+ *   - the florist's OWN request text signaling contact/order intent
+ *     (requestSignalsCtaLanguage — the same signal the operational-notice
+ *     CTA logic already uses, reused rather than reinvented)
+ *   - a real promotion contract (a promotion legitimately invites the
+ *     customer to act on it)
+ *   - a real event contract with a stated action (order/reserve/book/
+ *     pick_up — an event reminder legitimately invites that action)
+ *   - a genuine sympathy/funeral context (BEREAVEMENT_CONTEXT_RE) — a
+ *     grieving family may legitimately need a way to reach the shop
+ *
+ * Returns false (no CTA authorized) otherwise — the safe default. This is
+ * deliberately narrow: an ordinary "closing at 2 PM today" operational
+ * notice or "brighten someone's day" casual post authorizes nothing on its
+ * own, exactly the two live-found defects (Test F, Test G) this exists to
+ * close.
+ */
+export function determineCtaAuthorization({
+  requestText = "",
+  ctaText = null,
+  ctaIntent = null,
+  promotionFacts = null,
+  eventFacts = null
+} = {}) {
+  const resolvedCtaIntent = ctaIntent ?? classifyCtaIntent(ctaText);
+  if (resolvedCtaIntent && resolvedCtaIntent !== "none") return true;
+  if (requestSignalsCtaLanguage(requestText)) return true;
+  if (promotionFacts && typeof promotionFacts === "object") return true;
+  if (eventFacts && typeof eventFacts === "object" && eventFacts.action) return true;
+  if (BEREAVEMENT_CONTEXT_RE.test(String(requestText || ""))) return true;
+  return false;
 }
 
 // ---------------------------------------------------------------------------
@@ -1068,6 +1113,11 @@ export function buildCanonicalConcept({
   // already establish.
   const messageIntent = classifyMessageIntent({ requestText, audience, isSympathy: sympathy, occasionCategory });
   const userTemporalIntent = classifyUserTemporalIntent({ requestText });
+  // Test G: computed here (once) so both the returned concept fields below
+  // and determineCtaAuthorization (which needs to know about a real
+  // promotion/event action) read the exact same contract objects.
+  const promotionFacts = classifyPromotionFacts({ requestText, promotionIntent });
+  const eventFacts = classifyEventFacts({ requestText, occasionTitle, occasionCategory, namedCampaign, audience });
 
   return {
     version: CANONICAL_CONCEPT_VERSION,
@@ -1099,14 +1149,18 @@ export function buildCanonicalConcept({
     // Test D: the structured promotion contract (null for a non-promotion).
     // Deliberately NOT an identity field — a wording revision must not be
     // treated as concept drift because a promo code was supplied later.
-    promotionFacts: classifyPromotionFacts({ requestText, promotionIntent }),
+    promotionFacts,
     // Test E: the structured event-reminder contract (null for a
     // non-event). Same discipline as promotionFacts: not an identity field.
-    eventFacts: classifyEventFacts({ requestText, occasionTitle, occasionCategory, namedCampaign, audience }),
+    eventFacts,
     // Test F: the structured operational-notice contract (null for a
     // request with no operational category or fact at all). Same
     // discipline as promotionFacts/eventFacts: not an identity field.
-    operationalNoticeFacts: classifyOperationalNoticeFacts(requestText)
+    operationalNoticeFacts: classifyOperationalNoticeFacts(requestText),
+    // Test G: is a CTA authorized at all for this post — never an identity
+    // field, computed fresh from the same signals every time. See
+    // determineCtaAuthorization's own docstring for the full rule.
+    ctaAuthorized: determineCtaAuthorization({ requestText, ctaIntent, promotionFacts, eventFacts })
   };
 }
 

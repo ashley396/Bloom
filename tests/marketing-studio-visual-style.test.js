@@ -257,8 +257,10 @@ test("generate_content: a text_post's real generation persists brand_traits_used
   const mock = mockCloudflareOnce({
     platform: "facebook",
     headline: "h",
-    body: "Order your fall bouquet today.",
-    cta: "Order now",
+    // Test G: neither the body nor cta is CTA-shaped-and-unauthorized —
+    // this test is about trait persistence, not CTA policy.
+    body: "A bright bouquet to celebrate the fall season.",
+    cta: "",
     visual_brief: "v",
     hashtags: ["#fall"],
     asset_requirements: [],
@@ -334,7 +336,9 @@ test("generate_content: a previously-saved My Style preference ('soft luxury bac
             platform: "facebook",
             headline: "h",
             body: "New spring arrangements are here!",
-            cta: "Shop now",
+            // Test G: unauthorized here — this test is about style-memory
+            // preference reaching the prompt, not CTA policy.
+            cta: "",
             visual_brief: "a spring arrangement",
             hashtags: [],
             asset_requirements: [],

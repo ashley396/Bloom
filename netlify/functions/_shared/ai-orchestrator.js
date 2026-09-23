@@ -26,6 +26,7 @@ import { applyRevisionDeltas, defaultVisualStyle } from "./ai-visual-revisions.j
 import { buildVisualBrief } from "./ai-intent-router.js";
 import { loadGenerationGrounding } from "./marketing-generation-grounding.js";
 import { evaluateMarketingOutput } from "./marketing-content-revision.js";
+import { determineCtaAuthorization } from "./marketing-canonical-concept.js";
 
 const POSTABLE_CHANNELS = ["facebook", "instagram", "google_business", "email", "sms", "blog"];
 const CHANNEL_TO_CAMPAIGN_CHANNEL = {
@@ -174,6 +175,15 @@ async function runStep(client, step, ctx) {
     // result is still persisted with its safety verdict attached rather
     // than blocking the whole job; closing that gap fully is tracked as a
     // follow-up, not silently assumed done here.
+    // Test G: this job-runner path has no promotion/event contract
+    // classification of its own (unlike generate_content), so
+    // determineCtaAuthorization here only ever sees the request text
+    // itself — real, but a narrower signal than generate_content's. That
+    // still closes the exact live-found defect (an ordinary request never
+    // gets an invented CTA) without this path attempting to duplicate
+    // generate_content's fuller concept-building — a follow-up, not
+    // silently assumed done here, same discipline as this function's own
+    // pre-existing comment about its safety-net's other known gaps.
     const socialPostEval = evaluateMarketingOutput({
       route: "ai_orchestrator.marketing.createSocialPost",
       request: requestText,
@@ -181,7 +191,8 @@ async function runStep(client, step, ctx) {
       inventoryEvidence: ctx.inventory || [],
       candidate: gen.content,
       component: "caption",
-      isRetryAttempt: true
+      isRetryAttempt: true,
+      canonicalConcept: { ctaAuthorized: determineCtaAuthorization({ requestText }) }
     });
     if (socialPostEval.safeCandidate) {
       gen.content.headline = socialPostEval.safeCandidate.headline;
@@ -401,6 +412,8 @@ async function runStep(client, step, ctx) {
     // — no concept-threading exists between this and any sibling caption
     // step here, so coherence/CTA checks don't apply (canonicalConcept
     // omitted), same as before this fix.
+    // Test G: same request-text-only authorization signal as
+    // marketing.createSocialPost above.
     const flyerContentEval = evaluateMarketingOutput({
       route: "ai_orchestrator.creative.renderFlyerContent",
       request: requestText,
@@ -408,7 +421,8 @@ async function runStep(client, step, ctx) {
       inventoryEvidence: ctx.inventory || [],
       candidate: gen.content,
       component: "flyer_text",
-      isRetryAttempt: true
+      isRetryAttempt: true,
+      canonicalConcept: { ctaAuthorized: determineCtaAuthorization({ requestText }) }
     });
     if (flyerContentEval.safeCandidate) {
       gen.content.headline = flyerContentEval.safeCandidate.headline;

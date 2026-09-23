@@ -828,8 +828,22 @@ export function formatStoredPhoneForDisplay(raw) {
 // request itself asked for contact). A phone the florist TYPED into this
 // exact request is always kept — that is an unambiguous, deliberate
 // inclusion on their part, independent of either signal.
-const ORDER_LANGUAGE_RE = /\b(?:order|purchase|buy|shop now)\b/i;
+// Test G: "sell"/"selling"/"for sale" added — a request that says "I have
+// 40 roses I need to sell" is itself a real, explicit commercial signal
+// (the florist is asking to move inventory), not something a CTA
+// responding to it invents on its own. Verified this addition touches no
+// existing Test F fixture (none uses the word).
+const ORDER_LANGUAGE_RE = /\b(?:order|purchase|buy|shop now|sell(?:ing)?|for sale)\b/i;
 const CONTACT_SIGNAL_RE = /\b(?:call|contact|reach us|questions|give us a call|text us)\b/i;
+
+/** True when the florist's own request text signals that contact/ordering
+ * is actually relevant — reused, never re-implemented, by both the
+ * operational-notice CTA logic above and the general CTA-authorization
+ * check below (Test G). Pure. */
+export function requestSignalsCtaLanguage(text) {
+  const s = String(text || "");
+  return ORDER_LANGUAGE_RE.test(s) || CONTACT_SIGNAL_RE.test(s);
+}
 
 /** The operational-notice CTA, or "" when nothing in the request justifies
  * one — never an invented generic phrase ("Contact us for details."), and
@@ -841,6 +855,126 @@ function buildOperationalNoticeCta({ text, requestPhone, phone }) {
   const phoneIsJustified = Boolean(requestPhone) || wantsOrderLanguage || CONTACT_SIGNAL_RE.test(text);
   if (!phoneIsJustified) return "";
   return wantsOrderLanguage ? `Call ${phone} to place an order.` : `Call ${phone}.`;
+}
+
+// ---------------------------------------------------------------------------
+// Test G ("CTA-authorization / casual-social fix"): a real live defect —
+// "Make me a cute Facebook post about brightening someone's day with
+// flowers." (no CTA asked for, canonical ctaIntent: "none") came back with
+// "Lilies in Bloom has flowers ready to brighten someone's day. Call
+// 606-506-4039 to place an order." The phone number itself was real and
+// verified; the AI caption invented the surrounding "Call ... to place an
+// order" commercial instruction on its own, and nothing in the pipeline
+// checked whether a CTA was actually AUTHORIZED before shipping it.
+//
+// Ashley's own architectural framing, verbatim: "Fact availability and CTA
+// authorization are separate concepts... factsAllowed must not mean
+// permission to introduce a CTA using this fact." This section is the one
+// place that decides whether a CTA-SHAPED sentence (an instruction to
+// call/text/message/order/shop/visit/stop by, paired with a real
+// commercial target — "to place an order," "today," "our website," "us")
+// is allowed to survive in generated/persisted text — completely
+// independent of whether any fact inside that sentence happens to be true.
+// determineCtaAuthorization() (marketing-canonical-concept.js) is the
+// single source of truth for the "is a CTA authorized at all" question;
+// everything here only answers "does this sentence READ as a CTA."
+// Independent-review fix: the first draft of this regex missed several
+// real phrasings a model could plausibly write — "call" without "us"/"at"
+// immediately after but WITH a phone number instead ("Call 606-506-4039
+// today for fresh flowers."), "ring" as a call synonym, "give (us) a
+// call" (the object before the verb, not after), "text us" (only
+// "message us" was covered), and a real URL instead of the bare word
+// "website"/"site" ("Visit www.example.com to order..."). None of these
+// are hypothetical — every one was verified as a false negative before
+// this fix and as a true positive after it.
+const PHONE_DIGITS_SRC = "\\(?\\d{3}\\)?[-.\\s]?\\d{3}[-.\\s]?\\d{4}";
+const URL_LIKE_SRC = "(?:https?:\\/\\/\\S+|www\\.\\S+|\\S+\\.(?:com|net|org)\\b)";
+const UNAUTHORIZED_CTA_SENTENCE_RE = new RegExp(
+  [
+    `\\b(?:call|ring)\\b[^.!?\\n]{0,40}\\b(?:to (?:order|place an order|book|reserve)|us\\b|at\\b|about\\b|${PHONE_DIGITS_SRC})`,
+    // The object named before the verb — "Give us a call", "Give me a
+    // call" — matches regardless of what follows; asking for a call at
+    // all is the CTA, not just a specific trailing purpose.
+    "\\bgive\\s+(?:us|me)\\s+a\\s+call\\b",
+    "\\border\\b[^.!?\\n]{0,35}\\b(?:today|now|online|here)\\b",
+    // Sentence-initial only — "In The Shop Now" (a real, ordinary headline
+    // naming current inventory) is not the imperative "Shop now." a bare
+    // mid-sentence match would have wrongly caught (a live-found false
+    // positive against this file's own regression fixtures).
+    "^shop\\s*now\\b",
+    `\\bvisit\\b[^.!?\\n]{0,60}\\b(?:website|site|shop|store|${URL_LIKE_SRC})[^.!?\\n]{0,20}\\b(?:to\\s+(?:order|shop|book|reserve|pick\\s*up)|for\\s+pickup)\\b`,
+    "\\b(?:message|text)\\s+us\\b[^.!?\\n]{0,30}\\bto\\s+(?:order|place an order|book|reserve)\\b",
+    // "Stop by today!" alone is ordinary, everyday warmth — real florist
+    // copy has always used it harmlessly (a live-found false positive:
+    // flagging it broke ordinary, already-correct captions). Only the
+    // explicit fulfillment/purchase framing Ashley's own banned example
+    // actually used ("Stop by and pick up flowers today.") counts.
+    "\\b(?:stop|come)\\s*by\\b[^.!?\\n]{0,30}\\b(?:pick\\s*up|to\\s+(?:order|buy|shop))\\b",
+    "\\breach\\s+out\\b[^.!?\\n]{0,30}\\bto\\s+(?:order|book|reserve)\\b"
+  ].join("|"),
+  "i"
+);
+
+/** True when `sentence` reads as a CTA — an instruction to contact, order,
+ * shop, visit, or stop by, paired with a real commercial target. This is
+ * a SHAPE check only, deliberately blind to whether the shop's real phone/
+ * URL/address happens to appear in it — "Call us to order flowers for
+ * Homecoming." and "Call 606-506-4039 to place an order." are both
+ * CTA-shaped; only the (separate) authorization check decides which one
+ * may actually survive. Exported for marketing-openai-creative-brief.js's
+ * classifyBriefText, which must apply the exact same shape test rather
+ * than a second, competing one. Pure. */
+export function sentenceReadsAsCta(sentence) {
+  return UNAUTHORIZED_CTA_SENTENCE_RE.test(String(sentence || ""));
+}
+
+/** The one CTA-shaped sentence in `generatedText` that has no
+ * authorization to be there, or null when every CTA-shaped sentence (if
+ * any) is authorized. Used as a BLOCKING evaluateMarketingOutput check —
+ * worth a retry, since simply deleting the sentence can leave a customer-
+ * facing caption abrupt or incomplete; the model gets a real chance to
+ * write a complete caption without inventing a CTA first. */
+export function detectUnauthorizedCtaClaim({ generatedText, ctaAuthorized = false } = {}) {
+  if (ctaAuthorized) return null;
+  for (const sentence of sentencesOf(generatedText)) {
+    if (sentenceReadsAsCta(sentence)) return sentence.trim();
+  }
+  return null;
+}
+
+/** Backstop repair pass — same contract as stripUnverifiedInventoryClaims
+ * and friends: removes every unauthorized CTA-shaped sentence and returns
+ * what was removed, never silently rewrites the rest of the text. Runs
+ * unconditionally alongside the other deterministic repairs, regardless of
+ * whether the retry above already produced a clean draft.
+ *
+ * Independent-review finding: two real callers (ai-orchestrator.js's Lily
+ * job-runner, marketing-compound-orchestrator.js's "Ask Lily" path) apply
+ * this repair with no retry/rescue of their own — if the ENTIRE candidate
+ * text were just one unauthorized CTA sentence, stripping it would have
+ * persisted an empty caption (Part 7's exact "never empty/fragment/
+ * sterile" prohibition), worse than the pre-fix status quo of shipping an
+ * unauthorized-but-real sentence. Never strips down to nothing: when
+ * every sentence is CTA-shaped, the text is left untouched here — the
+ * unconditional detectUnauthorizedCtaClaim check earlier in
+ * evaluateMarketingOutput still flags it as a real reason for any caller
+ * with a retry/rescue path to act on. */
+export function stripUnauthorizedCtaSentences({ generatedText, ctaAuthorized = false } = {}) {
+  const original = String(generatedText || "");
+  if (ctaAuthorized) return { text: original, removed: [] };
+  const removed = [];
+  const kept = sentencesOf(original).filter((s) => {
+    if (sentenceReadsAsCta(s)) { removed.push(s.trim()); return false; }
+    return true;
+  });
+  if (!removed.length) return { text: original, removed: [] };
+  const text = kept.join(" ").replace(/[ \t]{2,}/g, " ").trim();
+  if (!text && original.trim()) return { text: original, removed: [] };
+  return { text, removed };
+}
+
+export function unauthorizedCtaReasonText(sentence) {
+  return `"${sentence}" instructs the customer to call, order, shop, visit, or contact the shop — but nothing in this request authorized a call-to-action (no CTA was asked for, and this isn't a promotion, event action, or sympathy post). A verified fact like a real phone number is not, by itself, permission to build a sales instruction around it — state only what was actually asked.`;
 }
 
 /** The CTA sentence folded mid-caption after "Customers can " — same
@@ -1669,6 +1803,13 @@ export function buildDeterministicCreativeRescueContent({
   shopName,
   shopPhone,
   ctaIntent = null,
+  // Test G, Part 7: the rescue path is exactly as capable of inventing an
+  // unauthorized CTA as the primary AI draft was — the pre-Test-G default
+  // here was "no ctaIntent means a call CTA is allowed," which is the same
+  // architectural mistake this whole batch fixes ("fact availability is
+  // not CTA authorization"). Defaults to false (safe/restrictive) now;
+  // callers pass the real determineCtaAuthorization() result.
+  ctaAuthorized = false,
   audience = null,
   occasionCategory = null,
   namedCampaign = null,
@@ -1734,13 +1875,19 @@ export function buildDeterministicCreativeRescueContent({
         ? `${name} designs flowers for the moments that matter — a little something to brighten someone's day.`
         : "Flowers designed for the moments that matter — a little something to brighten someone's day.";
 
-  // A call CTA is only offered when the concept itself asked for one
-  // (ctaIntent === "call_shop") or when no concept was supplied at all
-  // (the caption-rescue call site today has no concept in scope) — never
-  // invented just because a phone number happens to exist. With no safe
-  // verified CTA available, the CTA is omitted — never replaced with an
-  // invented visit/open-state phrase.
-  const allowCallCta = Boolean(phone) && (ctaIntent === null || ctaIntent === "call_shop");
+  // Test G, Part 7: a call CTA is only offered when a CTA is actually
+  // AUTHORIZED — either the caller's real determineCtaAuthorization()
+  // result, or an explicit ctaIntent of "call_shop" (itself one of
+  // determineCtaAuthorization's own signals — a real, already-classified
+  // intent is authorization, never a looser rule than that function's own).
+  // A verified phone number existing is never, by itself, enough — the
+  // rescue must obey the exact same "informing vs. selling" boundary the
+  // primary draft does. Any OTHER named intent (e.g. "visit_shop") never
+  // gets a call CTA regardless of ctaAuthorized — this function only ever
+  // offers a phone call, never a different action. With no authorized
+  // call CTA, it's omitted — never replaced with an invented visit/
+  // open-state phrase.
+  const allowCallCta = Boolean(phone) && (ctaAuthorized || ctaIntent === "call_shop") && (ctaIntent === null || ctaIntent === "call_shop");
   const cta = allowCallCta ? `Call ${phone} to place an order.` : "";
   const caption = allowCallCta ? `${body} Call ${phone} to place an order.` : body;
 
@@ -3829,11 +3976,46 @@ export function evaluateMarketingOutput({
     }
   }
 
+  // Test G: CTA authorization — completely independent of whether any fact
+  // inside a CTA-shaped sentence happens to be true (Ashley's own
+  // architectural rule: "fact availability and CTA authorization are
+  // separate concepts"). `ctaAuthorized` is computed ONCE by the caller
+  // (determineCtaAuthorization in marketing-canonical-concept.js — the
+  // single source of truth for "is a CTA authorized at all") and carried
+  // on canonicalConcept exactly like ctaIntent already is; this evaluator
+  // only ever asks "does the text contain a CTA-shaped sentence" and, if
+  // so, whether authorization exists. Blocking (earns a retry) rather than
+  // silent, because simply deleting the sentence can leave an abrupt or
+  // incomplete caption — the model gets a real chance to write a complete
+  // one without inventing a CTA first; the strip pass below is the
+  // backstop if it doesn't.
+  // Mirrors determineCtaAuthorization's exact rule (marketing-canonical-
+  // concept.js) as a fallback for any caller that hasn't (or structurally
+  // can't — this module can't import that one without a circular
+  // dependency) precomputed canonicalConcept.ctaAuthorized: an explicit,
+  // real ctaIntent; a real promotion; a real event action; the request
+  // itself signaling contact/order intent; or genuine sympathy context all
+  // authorize a CTA on their own, exactly like that function's own rule —
+  // never a looser one.
+  const ctaAuthorized =
+    Boolean(canonicalConcept?.ctaAuthorized) ||
+    Boolean(canonicalConcept?.ctaIntent && canonicalConcept.ctaIntent !== "none") ||
+    Boolean(canonicalConcept?.promotionFacts && typeof canonicalConcept.promotionFacts === "object") ||
+    Boolean(canonicalConcept?.eventFacts?.action) ||
+    requestSignalsCtaLanguage(requestText) ||
+    BEREAVEMENT_CONTEXT_RE.test(String(requestText || ""));
+  checksRun.push("detectUnauthorizedCtaClaim");
+  const unauthorizedCta = detectUnauthorizedCtaClaim({ generatedText: rawJoined, ctaAuthorized });
+  if (unauthorizedCta) {
+    reasons.push(unauthorizedCtaReasonText(unauthorizedCta));
+    reasonCodes.push("unauthorized_cta_claim");
+  }
+
   // A concept that carries ONLY the promotion contract (a revise_content
   // call on a legacy asset without a stored concept) has nothing for the
   // coherence checks to compare against — they stay skipped exactly as
   // before the contract existed.
-  const conceptHasCoherenceFields = Boolean(canonicalConcept) && Object.keys(canonicalConcept).some((k) => !["promotionFacts", "promotionRequestText", "eventFacts", "eventRequestText", "operationalNoticeFacts", "operationalNoticeRequestText"].includes(k));
+  const conceptHasCoherenceFields = Boolean(canonicalConcept) && Object.keys(canonicalConcept).some((k) => !["promotionFacts", "promotionRequestText", "eventFacts", "eventRequestText", "operationalNoticeFacts", "operationalNoticeRequestText", "ctaAuthorized"].includes(k));
   if (conceptHasCoherenceFields && component === "flyer_text") {
     checksRun.push("detectConceptCoherenceMismatch");
     const mismatch = detectConceptCoherenceMismatch({
@@ -3934,7 +4116,8 @@ export function evaluateMarketingOutput({
     "stripUnverifiedInventoryClaims",
     "stripUnverifiedServiceAvailabilityClaims",
     "stripInventedTemporalClaims",
-    "stripVisualFictionLeakage"
+    "stripVisualFictionLeakage",
+    "stripUnauthorizedCtaSentences"
   );
   const fields = { ...originalFields };
   let repaired = false;
@@ -3992,6 +4175,15 @@ export function evaluateMarketingOutput({
         repaired = true;
         repairedBySet.add("stripUnsupportedEventClaims");
       }
+    }
+    // Test G: the same backstop every other fact-safety check gets — even
+    // if the retry above never ran or still returned an unauthorized CTA,
+    // the persisted text must never carry one.
+    const ctaCleaned = stripUnauthorizedCtaSentences({ generatedText: text, ctaAuthorized });
+    if (ctaCleaned.removed.length) {
+      text = ctaCleaned.text;
+      repaired = true;
+      repairedBySet.add("stripUnauthorizedCtaSentences");
     }
     if (key === "cta" && ctaLimitApplies) {
       const fitted = fitCtaToLimit(text, ctaMaxChars, { shopPhone, ctaIntent: canonicalConcept?.ctaIntent ?? null });

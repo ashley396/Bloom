@@ -106,12 +106,25 @@ test("buildDeterministicCreativeRescueContent never introduces bereavement langu
   assert.doesNotMatch(joined, /\b(sympathy|funeral|casket|bereavement|condolence|memorial|tribute|standing spray)\b/i);
 });
 
-test("buildDeterministicCreativeRescueContent offers a call CTA only when ctaIntent allows it or none was supplied", () => {
+test("buildDeterministicCreativeRescueContent offers a call CTA only when it's actually authorized", () => {
+  // Test G, Part 7: no concept in scope AND no explicit authorization is
+  // exactly the live-found defect's own shape (the caption-rescue call
+  // site had no ctaIntent/ctaAuthorized at all) — the safe default is now
+  // no invented CTA, not "assume permission."
   const noConcept = buildDeterministicCreativeRescueContent({ shopName: "Lilies in Bloom", shopPhone: "6065064039" });
-  assert.match(noConcept.cta, /^Call 606-506-4039/);
+  assert.equal(noConcept.cta, "", "with no authorization signal at all, no CTA may be invented");
 
+  // An explicit ctaIntent of "call_shop" is itself a real, already-
+  // classified intent — one of determineCtaAuthorization's own signals —
+  // so it authorizes a call CTA on its own, with no separate ctaAuthorized
+  // flag required.
   const callShop = buildDeterministicCreativeRescueContent({ shopName: "Lilies in Bloom", shopPhone: "6065064039", ctaIntent: "call_shop" });
   assert.match(callShop.cta, /^Call 606-506-4039/);
+
+  // Real authorization (e.g. the request itself asked for contact) plus no
+  // conflicting intent still offers the call CTA.
+  const authorizedNoIntent = buildDeterministicCreativeRescueContent({ shopName: "Lilies in Bloom", shopPhone: "6065064039", ctaAuthorized: true });
+  assert.match(authorizedNoIntent.cta, /^Call 606-506-4039/);
 
   const notCallShop = buildDeterministicCreativeRescueContent({ shopName: "Lilies in Bloom", shopPhone: "6065064039", ctaIntent: "visit_store" });
   assert.equal(notCallShop.cta, "", "no safe CTA available here — must be omitted, not replaced with an invented phrase");

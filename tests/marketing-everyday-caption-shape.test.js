@@ -60,10 +60,15 @@ const ONE_HOOK_FOUR_GENERIC =
   "Flowers have a way of saying what words cannot. " +
   "Let Lilies in Bloom help you make someone smile with fresh flowers today.";
 // A natural two-or-three-sentence caption where the hook IS the caption.
+// Test G: "Call {PHONE} to send one." is genuinely CTA-shaped (an
+// instruction to call the shop), and this fixture's own request never
+// authorized one — reworded to keep the same meaning/sentence count/
+// specificity classification without tripping the unauthorized-CTA guard
+// this test isn't about.
 const NATURAL_SHORT_CAPTION =
   "Your sister just finished her first week at a new job. " +
   "A bouquet showing up on her doorstep today says more than a text ever could. " +
-  `Call ${PHONE} to send one.`;
+  "Lilies in Bloom makes it simple to send one over.";
 // The same emotional idea restated four times with nothing concrete.
 const REPEATED_EMOTIONAL_FILLER =
   "Flowers bring so much joy to everyone who receives them. " +
@@ -76,10 +81,15 @@ const EVERYDAY_OPTS = { shopName: SHOP, shopPhone: PHONE, audience: "general_loc
 // Independent review's fixture: a GOOD four-sentence caption (one hook,
 // hollow 2/4 — under the threshold) that shipped clean before the guard
 // existed. It must still ship, whatever the retry does.
+// Test G: "just a phone call to us" was coincidentally CTA-shaped (call +
+// us) — reworded to keep the exact same meaning/warmth/sentence count/
+// specificity classification without an unauthorized-CTA false positive
+// (this fixture's own request never asked for a CTA, and this test isn't
+// about CTA authorization).
 const GOOD_FOUR_SENTENCES =
   "Your neighbor just got home from a long hospital stay and hasn't heard from anyone yet. " +
   "Flowers on the porch tell her somebody noticed she was gone. " +
-  "It doesn't take an occasion, just a phone call to us. " +
+  "It doesn't take a special occasion, just a little thoughtfulness. " +
   `Lilies in Bloom, ${PHONE} — tell us where they're going.`;
 // A three-sentence hollow retry — one REAL (blocking) fault.
 const HOLLOW_THREE =

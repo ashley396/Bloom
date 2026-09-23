@@ -58,7 +58,11 @@ import { createFakeSupabaseClient, createFakeSupabaseStorage } from "./helpers/f
 
 const SHOP = "Lilies in Bloom";
 const TEST_C_BRIEF = "Create a Facebook post encouraging people to send flowers today.";
-const TEST_C_RESCUE_CAPTION = "Lilies in Bloom makes it easy to send someone flowers today. Call 606-506-4039 to place an order.";
+// Test G: the brief never asked for a call/order CTA, so the rescue no
+// longer invents "Call ... to place an order." around the shop's stored
+// phone — the exact live defect Test G closes, reproduced here through
+// the same rescue path Test C's own live scenario used.
+const TEST_C_RESCUE_CAPTION = "Lilies in Bloom makes it easy to send someone flowers today.";
 
 // Three substantive sentences, every one hollow by the evaluator's own
 // definition (no flower/product/number/date, no person+action pairing).

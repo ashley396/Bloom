@@ -80,11 +80,17 @@ function getJobUpdatePayload(client) {
   return call.payload;
 }
 
+// Test G: neither the body nor the cta is CTA-shaped-and-unauthorized —
+// the underlying request ("Create a wedding bouquet post for Facebook,
+// schedule it for Friday evening.") never asked for ordering/pickup
+// language, so a fixture using it must not either, or
+// evaluateMarketingOutput's own (correct) unauthorized-CTA strip pass
+// would clean it, and these tests aren't about CTA-authorization at all.
 const DEFAULT_SOCIAL_POST = {
   platform: "facebook",
   headline: "Fresh for the weekend",
-  body: "Our wedding bouquets are ready to order — book your Friday pickup today.",
-  cta: "Order now",
+  body: "Our wedding bouquets are ready for your special day, arranged with fresh seasonal blooms.",
+  cta: "",
   visual_brief: "Close-up of a white and blush wedding bouquet on a wooden table.",
   hashtags: ["#wedding", "#localflorist"],
   asset_requirements: []

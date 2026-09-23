@@ -190,6 +190,13 @@ test("evaluateMarketingOutput: a fabricated phone number is caught by detectWeak
     request: "Closing early today",
     shopEvidence: { name: "Lilies in Bloom", phone: "606-506-4039" },
     candidate: { headline: "Closing Early", body: "We're closing early today.", cta: "Call (555) 555-5555" },
+    // Test G: this test is specifically about placeholder-phone
+    // substitution mechanics (stripFabricatedContactNumbers), not CTA
+    // authorization — authorized here so that mechanism can be tested in
+    // isolation; a plain "closing early today" notice with no contact
+    // language has its own dedicated (and now correct) unauthorized-CTA
+    // test elsewhere.
+    canonicalConcept: { ctaAuthorized: true },
     component: "flyer_text"
   });
   // detectWeakMarketingCopy already flags a placeholder/fabricated number

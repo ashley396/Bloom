@@ -185,6 +185,7 @@ import {
   classifyUserTemporalIntent,
   classifyPromotionFacts,
   classifyEventFacts,
+  determineCtaAuthorization,
   deriveFactRequirements
 } from "./_shared/marketing-canonical-concept.js";
 import { buildDeterministicCreativeDirection, inheritCreativeDirection, hasNoDrawableTextSlots, GRAPHIC_TEXT_LIMITS_DEFAULT } from "./_shared/marketing-creative-direction.js";
@@ -236,6 +237,18 @@ function visualStyleScreenPayload(preferences) {
     };
   }
   return { categories, summary: buildVisualStyleSummary(preferences) };
+}
+
+/** Test G: the same CTA-authorization question the generate_content path
+ * already answers, for a revise_content instruction — reused at all four
+ * revision evaluator call sites rather than each recomputing promotionFacts/
+ * eventFacts inline a second time just to answer it. */
+function revisionCtaAuthorized(requestText, occasionTitle) {
+  return determineCtaAuthorization({
+    requestText,
+    promotionFacts: classifyPromotionFacts({ requestText }),
+    eventFacts: classifyEventFacts({ requestText, occasionTitle })
+  });
 }
 
 // Priority 7 ("as far as technically possible" pass): the platform SET on
@@ -1283,7 +1296,7 @@ export function createMarketingStudioHandler(deps = {}) {
               candidate: captionGen.content,
               // Test D: a revision's promotion contract = the brief plus the
               // florist's own instruction (a code she types here is supplied).
-              canonicalConcept: { promotionFacts: classifyPromotionFacts({ requestText: `${currentItem.data.brief} ${instruction}` }), eventFacts: classifyEventFacts({ requestText: `${currentItem.data.brief} ${instruction}`, occasionTitle: currentItem.data.title }), promotionRequestText: `${currentItem.data.brief} ${instruction}`, operationalNoticeFacts: classifyOperationalNoticeFacts(`${currentItem.data.brief} ${instruction}`), operationalNoticeRequestText: `${currentItem.data.brief} ${instruction}` },
+              canonicalConcept: { promotionFacts: classifyPromotionFacts({ requestText: `${currentItem.data.brief} ${instruction}` }), eventFacts: classifyEventFacts({ requestText: `${currentItem.data.brief} ${instruction}`, occasionTitle: currentItem.data.title }), promotionRequestText: `${currentItem.data.brief} ${instruction}`, operationalNoticeFacts: classifyOperationalNoticeFacts(`${currentItem.data.brief} ${instruction}`), operationalNoticeRequestText: `${currentItem.data.brief} ${instruction}`, ctaAuthorized: revisionCtaAuthorized(`${currentItem.data.brief} ${instruction}`, currentItem.data.title) },
               component: "caption",
               isRetryAttempt: true
             });
@@ -1570,7 +1583,7 @@ export function createMarketingStudioHandler(deps = {}) {
               inventoryEvidence: currentAsset.content?.grounded_in_inventory || [],
               candidate: gen.content,
               // Test D: the revision's promotion contract (brief + instruction).
-              canonicalConcept: { promotionFacts: classifyPromotionFacts({ requestText: `${currentItem.data.brief} ${instruction}` }), eventFacts: classifyEventFacts({ requestText: `${currentItem.data.brief} ${instruction}`, occasionTitle: currentItem.data.title }), promotionRequestText: `${currentItem.data.brief} ${instruction}`, operationalNoticeFacts: classifyOperationalNoticeFacts(`${currentItem.data.brief} ${instruction}`), operationalNoticeRequestText: `${currentItem.data.brief} ${instruction}` },
+              canonicalConcept: { promotionFacts: classifyPromotionFacts({ requestText: `${currentItem.data.brief} ${instruction}` }), eventFacts: classifyEventFacts({ requestText: `${currentItem.data.brief} ${instruction}`, occasionTitle: currentItem.data.title }), promotionRequestText: `${currentItem.data.brief} ${instruction}`, operationalNoticeFacts: classifyOperationalNoticeFacts(`${currentItem.data.brief} ${instruction}`), operationalNoticeRequestText: `${currentItem.data.brief} ${instruction}`, ctaAuthorized: revisionCtaAuthorized(`${currentItem.data.brief} ${instruction}`, currentItem.data.title) },
               component: "caption",
               isRetryAttempt: true
             });
@@ -1660,7 +1673,7 @@ export function createMarketingStudioHandler(deps = {}) {
               // concept preview, and the CTA contract is enforced here too —
               // a revision could otherwise ship an invented code or an
               // over-limit CTA the renderer would then silently drop.
-              canonicalConcept: { ...(conceptPreview || {}), promotionFacts: classifyPromotionFacts({ requestText: `${currentItem.data.brief} ${instruction}` }), eventFacts: classifyEventFacts({ requestText: `${currentItem.data.brief} ${instruction}`, occasionTitle: currentItem.data.title }), promotionRequestText: `${currentItem.data.brief} ${instruction}`, operationalNoticeFacts: classifyOperationalNoticeFacts(`${currentItem.data.brief} ${instruction}`), operationalNoticeRequestText: `${currentItem.data.brief} ${instruction}` },
+              canonicalConcept: { ...(conceptPreview || {}), promotionFacts: classifyPromotionFacts({ requestText: `${currentItem.data.brief} ${instruction}` }), eventFacts: classifyEventFacts({ requestText: `${currentItem.data.brief} ${instruction}`, occasionTitle: currentItem.data.title }), promotionRequestText: `${currentItem.data.brief} ${instruction}`, operationalNoticeFacts: classifyOperationalNoticeFacts(`${currentItem.data.brief} ${instruction}`), operationalNoticeRequestText: `${currentItem.data.brief} ${instruction}`, ctaAuthorized: revisionCtaAuthorized(`${currentItem.data.brief} ${instruction}`, currentItem.data.title) },
               component: "flyer_text",
               isRetryAttempt: true,
               graphicTextLimits: { ctaMaxChars: GRAPHIC_TEXT_LIMITS_DEFAULT.ctaMaxChars }
@@ -1956,7 +1969,7 @@ export function createMarketingStudioHandler(deps = {}) {
             inventoryEvidence: currentAsset.content?.grounded_in_inventory || [],
             candidate: gen.content,
             // Test D: the revision's promotion contract (brief + instruction).
-            canonicalConcept: { promotionFacts: classifyPromotionFacts({ requestText: `${currentItem.data.brief} ${instruction}` }), eventFacts: classifyEventFacts({ requestText: `${currentItem.data.brief} ${instruction}`, occasionTitle: currentItem.data.title }), promotionRequestText: `${currentItem.data.brief} ${instruction}`, operationalNoticeFacts: classifyOperationalNoticeFacts(`${currentItem.data.brief} ${instruction}`), operationalNoticeRequestText: `${currentItem.data.brief} ${instruction}` },
+            canonicalConcept: { promotionFacts: classifyPromotionFacts({ requestText: `${currentItem.data.brief} ${instruction}` }), eventFacts: classifyEventFacts({ requestText: `${currentItem.data.brief} ${instruction}`, occasionTitle: currentItem.data.title }), promotionRequestText: `${currentItem.data.brief} ${instruction}`, operationalNoticeFacts: classifyOperationalNoticeFacts(`${currentItem.data.brief} ${instruction}`), operationalNoticeRequestText: `${currentItem.data.brief} ${instruction}`, ctaAuthorized: revisionCtaAuthorized(`${currentItem.data.brief} ${instruction}`, currentItem.data.title) },
             component: "caption",
             isRetryAttempt: true
           });
@@ -2896,6 +2909,17 @@ export function createMarketingStudioHandler(deps = {}) {
           // against this contract exactly like it checks the deterministic
           // notice builder's own output.
           const socialConceptOperationalNoticeFacts = classifyOperationalNoticeFacts(currentItem.data.brief);
+          // Test G: computed once, up front, exactly like the three
+          // contracts above — never re-derived per call site. Tells both
+          // the writer prompt (so it never invents a CTA in the first
+          // place) and the evaluator/rescue below (so one survives the
+          // strip pass only when it was actually authorized) the same
+          // answer to "is a CTA authorized for this post at all."
+          const socialConceptCtaAuthorized = determineCtaAuthorization({
+            requestText: currentItem.data.brief,
+            promotionFacts: socialConceptPromotionFacts,
+            eventFacts: socialConceptEventFacts
+          });
           const socialConceptCopyVoice = classifyCopyVoice({
             creativeMode: socialConceptCreativeMode,
             namedCampaign: socialConceptNamedCampaign,
@@ -2928,7 +2952,8 @@ export function createMarketingStudioHandler(deps = {}) {
               userTemporalIntent: socialConceptUserTemporalIntent,
               promotionFacts: socialConceptPromotionFacts,
               eventFacts: socialConceptEventFacts,
-              operationalNoticeFacts: socialConceptOperationalNoticeFacts
+              operationalNoticeFacts: socialConceptOperationalNoticeFacts,
+              ctaAuthorized: socialConceptCtaAuthorized
             }
           };
           copyGen = await generateSocialPost(socialPostArgs);
@@ -2963,7 +2988,7 @@ export function createMarketingStudioHandler(deps = {}) {
           // classified above travels with it, so the evaluator's narrow
           // everyday-caption shape guard can scope itself — never a second
           // classifier, and nothing else in the preview changes.
-          const captionConceptPreview = { audience: socialConceptAudience, messageIntent: socialConceptMessageIntent, promotionFacts: socialConceptPromotionFacts, eventFacts: socialConceptEventFacts, operationalNoticeFacts: socialConceptOperationalNoticeFacts };
+          const captionConceptPreview = { audience: socialConceptAudience, messageIntent: socialConceptMessageIntent, promotionFacts: socialConceptPromotionFacts, eventFacts: socialConceptEventFacts, operationalNoticeFacts: socialConceptOperationalNoticeFacts, ctaAuthorized: socialConceptCtaAuthorized };
           let captionEval = evaluateMarketingOutput({
             route: "generate_content",
             request: currentItem.data.brief,
@@ -3166,6 +3191,7 @@ export function createMarketingStudioHandler(deps = {}) {
             const rescueFallback = buildDeterministicCreativeRescueContent({
               shopName,
               shopPhone: shopRow.data?.phone,
+              ctaAuthorized: socialConceptCtaAuthorized,
               audience: socialConceptAudience,
               occasionCategory: socialConceptOccasionCategory,
               namedCampaign: socialConceptNamedCampaign,
@@ -3371,6 +3397,15 @@ export function createMarketingStudioHandler(deps = {}) {
         // Test F, Part 3: same defense-in-depth contract as the caption
         // path above, for the on-image flyer wording.
         const conceptOperationalNoticeFacts = classifyOperationalNoticeFacts(currentItem.data.brief);
+        // Test G: same CTA-authorization question as the caption path,
+        // now using the caption's OWN actual cta field (conceptCtaIntent,
+        // already classified above) as an additional real signal.
+        const conceptCtaAuthorized = determineCtaAuthorization({
+          requestText: currentItem.data.brief,
+          ctaIntent: conceptCtaIntent,
+          promotionFacts: conceptPromotionFacts,
+          eventFacts: conceptEventFacts
+        });
         // Test D, Part 5: the on-image text contract this branch will
         // persist (buildDeterministicCreativeDirection copies these same
         // defaults) — stated to the wording model and enforced by the
@@ -3389,6 +3424,7 @@ export function createMarketingStudioHandler(deps = {}) {
           // to the caption's actual (possibly already-rescued) CTA text,
           // so the gate reflects what this post's CTA is really doing.
           ctaIntent: conceptCtaIntent,
+          ctaAuthorized: conceptCtaAuthorized,
           // Live-found defect fix: WHO this post is for — see
           // buildFlyerContentTask's own audienceCopyLine for exactly how
           // this reaches actual copy wording. Deliberately excluded from
@@ -3611,6 +3647,7 @@ export function createMarketingStudioHandler(deps = {}) {
               shopName,
               shopPhone: shopRow.data?.phone,
               ctaIntent: flyerConcept?.ctaIntent ?? null,
+              ctaAuthorized: Boolean(flyerConcept?.ctaAuthorized),
               occasionCategory: conceptOccasionCategory,
               namedCampaign: conceptNamedCampaign,
               messageIntent: conceptMessageIntent,

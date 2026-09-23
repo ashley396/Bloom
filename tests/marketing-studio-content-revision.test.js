@@ -138,11 +138,14 @@ test("revise_content (image): creates a NEW child asset, never overwrites the on
 // correction now revises the caption, and — just as important — leaves the
 // photo untouched, since nothing about the request asked for a new image.
 test("revise_content (image): a plain wording/name correction ('change it to Floyd Central Jaguars') revises the CAPTION, not the photo — the exact bug Ashley reported", async () => {
+  // Test G: "Order now" is CTA-shaped and this revision instruction never
+  // authorized one — left empty here since this test is about the team-
+  // name correction, not CTA policy.
   const mock = mockCloudflareGenerate({
     platform: "facebook",
     headline: "Good luck!",
     body: "Good luck to the Floyd Central Jaguars this Friday! 🐾💐",
-    cta: "Order now",
+    cta: "",
     visual_brief: "a jaguar holding a bouquet of flowers",
     hashtags: ["#gojaguars"],
     asset_requirements: []
@@ -217,7 +220,9 @@ test("revise_content (image): a caption-only revision on a REAL UPLOADED photo r
     // now correctly catches (Batch 1 rebuild) even on a caption-only
     // revision, exactly as it already did at generation time.
     body: "Fresh flowers can brighten someone's day, come see them today!",
-    cta: "Order now",
+    // Test G: "Order now" is CTA-shaped and unauthorized here — this test
+    // is about upload-photo disclosure, not CTA policy.
+    cta: "",
     visual_brief: "a bright bouquet",
     hashtags: [],
     asset_requirements: []

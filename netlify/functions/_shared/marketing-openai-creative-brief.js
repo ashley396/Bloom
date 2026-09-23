@@ -40,7 +40,7 @@
  * Tokens found anything else in that sentence.
  */
 
-import { extractFactTokens, sentencesOf, requestSignalsRealPromotion } from "./marketing-content-revision.js";
+import { extractFactTokens, sentencesOf, requestSignalsRealPromotion, sentenceReadsAsCta } from "./marketing-content-revision.js";
 
 export const CREATIVE_BRIEF_VERSION = 1;
 
@@ -128,15 +128,36 @@ export function sentenceContainsVerifiedBusinessIdentifier(sentence, verifiedIde
  * kept together with the fact so removing it later (for deterministic
  * overlay handling) never leaves a dangling half-sentence.
  *
+ * Test G, Part 3 (live-found defect): a verified fact token inside a
+ * sentence used to be enough, by itself, to classify the WHOLE sentence as
+ * fact-critical/protected — "Call 606-506-4039 to place an order." was
+ * preserved verbatim into the OpenAI overlay text because the phone number
+ * is real, even though nothing authorized the surrounding "to place an
+ * order" commercial instruction and the request's own ctaIntent was
+ * "none." A real fact token is proof the FACT is true; it is never proof
+ * that a CTA built around it was requested — those are separate
+ * questions (Ashley's own framing). A CTA-shaped sentence (per
+ * sentenceReadsAsCta, the SAME shape test evaluateMarketingOutput's
+ * detectUnauthorizedCtaClaim already uses — never a second, competing
+ * classifier) is now checked FIRST: when it's unauthorized, it is dropped
+ * from this brief entirely — neither style text sent to the image model
+ * as tone language, nor fact-critical text protected/drawn as real pixels
+ * — matching exactly what evaluateMarketingOutput's own strip pass already
+ * does to the persisted caption/body/cta text. An AUTHORIZED CTA sentence
+ * (ctaAuthorized: true) is unaffected and still classified normally below.
+ *
  * @param {string} text
  * @param {object} [opts]
  * @param {string[]} [opts.verifiedIdentifiers] - the shop's own real,
  *   authenticated identifiers (name/address) — never invented here, never
  *   hard-coded to any specific shop. Omitted/empty preserves the exact
  *   pre-Batch-5.3.1 behavior.
+ * @param {boolean} [opts.ctaAuthorized] - the caller's real
+ *   determineCtaAuthorization() result (marketing-canonical-concept.js) —
+ *   never re-derived here.
  * @returns {{ factTokens: string[], styleText: string[], factCriticalText: string[] }}
  */
-export function classifyBriefText(text, { verifiedIdentifiers = [] } = {}) {
+export function classifyBriefText(text, { verifiedIdentifiers = [], ctaAuthorized = false } = {}) {
   const source = String(text || "");
   const factTokens = extractFactTokens(source);
   if (!source.trim()) return { factTokens: [], styleText: [], factCriticalText: [] };
@@ -146,6 +167,7 @@ export function classifyBriefText(text, { verifiedIdentifiers = [] } = {}) {
   for (const raw of sentences) {
     const sentence = raw.trim();
     if (!sentence) continue;
+    if (!ctaAuthorized && sentenceReadsAsCta(sentence)) continue;
     const hasFact =
       factTokens.some((token) => sentence.includes(token)) ||
       requestSignalsRealPromotion(sentence) ||
@@ -207,6 +229,12 @@ export function buildOpenAiCreativeBrief({
   // (and, downstream, the OpenAI-bound image prompt).
   const verifiedIdentifiers = [verifiedShopBrandData?.name, verifiedShopBrandData?.address].filter(Boolean).map(String);
 
+  // Test G: the same single authorization boolean evaluateMarketingOutput
+  // already checked before this brief is ever built — never re-derived
+  // here, and never inferred from factsAllowed below (a verified fact
+  // existing is not permission to build a CTA around it).
+  const ctaAuthorized = Boolean(canonicalConcept?.ctaAuthorized);
+
   const copyFields = ["headline", "body", "cta", "caption"];
   const styleText = [];
   const deterministicText = [];
@@ -214,7 +242,7 @@ export function buildOpenAiCreativeBrief({
   for (const field of copyFields) {
     const value = factSafeCopyPlan?.[field];
     if (!value) continue;
-    const classified = classifyBriefText(value, { verifiedIdentifiers });
+    const classified = classifyBriefText(value, { verifiedIdentifiers, ctaAuthorized });
     for (const token of classified.factTokens) factTokenSet.add(token);
     for (const sentence of classified.styleText) styleText.push({ field, text: sentence });
     for (const sentence of classified.factCriticalText) deterministicText.push({ field, text: sentence });

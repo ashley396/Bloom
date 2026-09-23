@@ -275,7 +275,10 @@ test("rescue: generic/no-occasion behavior is preserved BYTE-FOR-BYTE — the ex
 });
 
 test("rescue: CTA/caption composition remains fully shared across every occasion — a call CTA appears only when a real phone exists and ctaIntent allows it, never invented per occasion", () => {
-  const withPhone = buildDeterministicCreativeRescueContent({ shopName: SHOP.name, shopPhone: SHOP.phone, occasionCategory: "birthday", namedCampaign: "birthday" });
+  // Test G: a bare occasion category is not itself a CTA authorization
+  // signal — explicit here so this test can keep exercising "CTA
+  // composition is occasion-agnostic," its actual point.
+  const withPhone = buildDeterministicCreativeRescueContent({ shopName: SHOP.name, shopPhone: SHOP.phone, ctaAuthorized: true, occasionCategory: "birthday", namedCampaign: "birthday" });
   assert.match(withPhone.cta, /Call .*to place an order\./);
   assert.equal(withPhone.caption, `${withPhone.body} ${withPhone.cta}`);
 
@@ -349,12 +352,16 @@ test("safety: evaluateMarketingOutput end-to-end — a caption that is MOSTLY ho
 });
 
 test("safety: evaluateMarketingOutput end-to-end — concrete birthday copy passes cleanly with zero reasons", () => {
+  // Test G: this test's own point is hollow-copy quality, not CTA
+  // authorization — a bare "promoting birthday flowers" request never
+  // asked for ordering language, so ctaAuthorized: true here keeps the
+  // fixture's pre-existing "Order today" CTA legitimate for this test.
   const result = evaluateMarketingOutput({
     route: "generate_content",
     request: PERSONAL_OCCASION_REQUESTS.birthday,
     shopEvidence: SHOP,
     candidate: { headline: "Birthday Blooms", body: "Send a bright bouquet of gerbera daisies to make their birthday feel extra special this year.", cta: "Order today" },
-    canonicalConcept: { audience: "general_local_customers", occasionCategory: "birthday" },
+    canonicalConcept: { audience: "general_local_customers", occasionCategory: "birthday", ctaAuthorized: true },
     component: "caption"
   });
   assert.equal(result.reasons.length, 0);
@@ -400,7 +407,9 @@ test("safety: fabricated phone numbers and diversity/inventory/temporal protecti
     request: "Closing early today",
     shopEvidence: SHOP,
     candidate: { headline: "Closing Early", body: "We're closing early today.", cta: "Call (555) 555-5555" },
-    canonicalConcept: { audience: "general_local_customers", occasionCategory: "birthday" },
+    // Test G: this test is about placeholder-phone substitution, not CTA
+    // authorization — authorized here to isolate that mechanism.
+    canonicalConcept: { audience: "general_local_customers", occasionCategory: "birthday", ctaAuthorized: true },
     component: "flyer_text"
   });
   assert.equal(result.decision, "retry");

@@ -7,10 +7,17 @@ import { buildOpenAiCreativeBrief, classifyBriefText, CREATIVE_BRIEF_VERSION } f
 // not wired into any live generation path yet (Part 12). Every test here
 // is pure function input/output — no network call, no live provider.
 
+// Test G: this file's whole purpose is testing FACT-CRITICAL
+// classification (phone/date/price/promotion/identifier protection) —
+// orthogonal to CTA authorization, which has its own dedicated tests
+// below. ctaAuthorized: true here preserves every existing fixture's
+// original intent (a CTA-shaped sentence bearing a real fact is still
+// protected) without conflating the two concerns.
 const CANONICAL_CONCEPT = Object.freeze({
   occasionCategory: "everyday_floral",
   objective: "sell",
-  creativeFamily: "designed_flyer"
+  creativeFamily: "designed_flyer",
+  ctaAuthorized: true
 });
 
 const CREATIVE_DIRECTION = Object.freeze({
@@ -26,10 +33,27 @@ const CREATIVE_DIRECTION = Object.freeze({
 });
 
 test("classifyBriefText: separates a fact-bearing sentence from a purely stylistic one", () => {
-  const result = classifyBriefText("Spring is here! Call 606-506-4039 to order fresh bouquets today.");
+  // Test G: "Call ... to order ..." is CTA-shaped, so this specific
+  // fixture needs ctaAuthorized: true to exercise fact-token separation on
+  // its own — the unauthorized-CTA-shaped case has its own dedicated test
+  // below (classifyBriefText drops an unauthorized CTA-shaped sentence...).
+  const result = classifyBriefText("Spring is here! Call 606-506-4039 to order fresh bouquets today.", { ctaAuthorized: true });
   assert.deepEqual(result.styleText, ["Spring is here!"]);
   assert.equal(result.factCriticalText.length, 1);
   assert.match(result.factCriticalText[0], /606-506-4039/);
+  assert.ok(result.factTokens.includes("606-506-4039"));
+});
+
+test("classifyBriefText: an unauthorized CTA-shaped sentence is dropped entirely — never protected as fact-critical, never sent as style text", () => {
+  // Test G, Part 3 (the exact live-found defect): a real, verified phone
+  // number inside a CTA-shaped sentence used to be enough, by itself, to
+  // protect the WHOLE sentence — including the unauthorized "to order"
+  // commercial instruction around it.
+  const result = classifyBriefText("Spring is here! Call 606-506-4039 to order fresh bouquets today.");
+  assert.deepEqual(result.styleText, ["Spring is here!"]);
+  assert.equal(result.factCriticalText.length, 0, "the unauthorized CTA sentence must never be protected/drawn as real pixels");
+  // The fact TOKEN itself is still recognized (extractFactTokens is
+  // unconditional) — only the CTA-shaped SENTENCE it lived in is dropped.
   assert.ok(result.factTokens.includes("606-506-4039"));
 });
 
@@ -92,7 +116,11 @@ test("classifyBriefText: verified-name protection never broadens into a substrin
 
 test("classifyBriefText: phone/date/price/promotion protection is unaffected by verified-identifier hardening", () => {
   const result = classifyBriefText("Lilies in Bloom is proud to serve you. Call 606-506-4039 to order for delivery on 4/12. Get 20% off all bouquets this week.", {
-    verifiedIdentifiers: ["Lilies in Bloom"]
+    verifiedIdentifiers: ["Lilies in Bloom"],
+    // Test G: this sentence is CTA-shaped ("Call ... to order ...");
+    // authorized here so this test can keep exercising phone/date/
+    // promotion protection specifically, unrelated to CTA authorization.
+    ctaAuthorized: true
   });
   assert.equal(result.styleText.length, 0, "every sentence here carries either the shop name, a phone/date fact, or a promotion claim");
   assert.equal(result.factCriticalText.length, 3);

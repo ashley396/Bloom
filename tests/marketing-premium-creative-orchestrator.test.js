@@ -16,13 +16,18 @@ import { createOpenAiMarketingImageProvider } from "../netlify/functions/_shared
 // reaches a real network call — every provider is injected via
 // `providerFactory`.
 
+// Test G: this file tests fact-critical-text protection/prompt
+// construction, orthogonal to CTA authorization (which has its own
+// dedicated tests elsewhere) — ctaAuthorized: true preserves every
+// existing fixture's original intent.
 const CANONICAL_CONCEPT = Object.freeze({
   occasionCategory: "everyday_floral",
   sympathyClassification: "not_sympathy",
   promotionIntent: "not_promotion",
   factRequirements: [],
   objective: "sell",
-  creativeFamily: "designed_flyer"
+  creativeFamily: "designed_flyer",
+  ctaAuthorized: true
 });
 const CREATIVE_DIRECTION = Object.freeze({
   compositionFamily: "photo_dominant",
