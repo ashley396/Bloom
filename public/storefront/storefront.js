@@ -385,6 +385,9 @@
     document.getElementById("storefrontSearch")?.addEventListener("input", () => renderPage(route));
     document.getElementById("cartBtn")?.addEventListener("click", () => {
       document.getElementById("cartDrawer").hidden = false;
+      // A-1b: a leftover notice (e.g. "added to cart") must not sit over checkout.
+      const notice = document.getElementById("storefrontNotice");
+      if (notice) notice.hidden = true;
       applyCommerceSettings();
       syncDeliveryFields();
       renderCart();

@@ -321,5 +321,11 @@ h2 {
   cursor: pointer;
   padding: 0 4px;
 }
+/* A-1b: the shared Atelier shell rule `body.florisyn-atelier-shell > * { position: relative; z-index: 1 }`
+   (dcaf682, 2026-08-07) out-ranks these overlays' own class rules, so on the
+   storefront the cart drawer rendered inline below the page (392px wide on a
+   375px phone) and the notice never stayed on screen. Re-assert them here. */
+body.bloom-storefront > .storefront-cart { position: fixed; z-index: 20; box-sizing: border-box; }
+body.bloom-storefront > .storefront-notice { position: fixed; z-index: 1000; box-sizing: border-box; }
 /* Keep the drawer's last controls scrollable above a visible notice. */
 body:has(.storefront-notice:not([hidden])) .storefront-cart { padding-bottom: 140px; }

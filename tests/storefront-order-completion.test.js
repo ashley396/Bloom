@@ -334,4 +334,17 @@ test("customers can see the checkout result: announce() mirrors into a visible n
   assert.match(js, /getElementById\("storefrontNotice"\)/);
   assert.match(js, /notice\.hidden = !msg;/);
   assert.match(js, /added to cart`, \{ transient: true \}\)/);
+  assert.match(js, /cartDrawer"\)\.hidden = false;\s+\/\/ A-1b[^\n]*\n\s+const notice = document\.getElementById\("storefrontNotice"\);\s+if \(notice\) notice\.hidden = true;/, "opening the cart hides any leftover notice");
+});
+
+test("storefront overlays out-rank the shared Atelier shell rule that forced them to position: relative", () => {
+  const shell = fs.readFileSync(new URL("../public/florisyn-atelier-shell.css", import.meta.url), "utf8");
+  const css = fs.readFileSync(new URL("../public/storefront/storefront.css", import.meta.url), "utf8");
+  const html = fs.readFileSync(new URL("../public/storefront/index.html", import.meta.url), "utf8");
+  // The competing rule (specificity 0,1,1) and the body class that activates it.
+  assert.ok(/body\.florisyn-atelier-shell > \* \{\s*position: relative;/.test(shell), "shell rule changed — re-check the storefront overlay overrides");
+  assert.ok(html.includes('<body class="bloom-storefront florisyn-atelier-shell">'));
+  // Our overrides (0,2,1) keep the drawer and notice fixed and inside a 375px viewport.
+  assert.ok(css.includes("body.bloom-storefront > .storefront-cart { position: fixed; z-index: 20; box-sizing: border-box; }"));
+  assert.ok(css.includes("body.bloom-storefront > .storefront-notice { position: fixed; z-index: 1000; box-sizing: border-box; }"));
 });
