@@ -11,6 +11,7 @@ import {
 } from "./_shared/bloom-instant-website.js";
 import { buildPublishedSeoBundle } from "../../lib/seo/published-site-seo.js";
 import { buildPublishChecklist, validatePageSeoUpdate } from "../../lib/website-studio/publish-checklist.js";
+import { loadStorefrontVisibleProducts } from "./_shared/bloom-storefront-products.js";
 import {
   buildDnsInstructions,
   verifyDomainDns,
@@ -98,13 +99,20 @@ async function seedWebsiteCatalogIfEmpty(client, shopId) {
   }
 }
 
-export async function handler(event) {
+/** Test seam (A-1c) — production binds the real session helper via `handler`. */
+export function createInstantWebsiteHandler(deps = {}) {
+  return (event) => handleInstantWebsite(event, deps);
+}
+
+export const handler = createInstantWebsiteHandler();
+
+async function handleInstantWebsite(event, deps = {}) {
   const ready = preflight(event);
   if (ready) return ready;
   if (!["GET", "POST"].includes(event.httpMethod)) return methodNotAllowed();
 
   try {
-    const ctx = await currentUser(event);
+    const ctx = await (deps.currentUser || currentUser)(event);
     requireRoles(ctx, ROLES);
     const { client, shopId, user } = ctx;
     const body = event.httpMethod === "GET" ? {} : bodyOf(event);
@@ -726,10 +734,14 @@ export async function handler(event) {
           pages = pageRows || [];
         }
       }
+      // A-1c: products come from the storefront's own reader (the shop's real
+      // online products), never from the request body — the Launch checklist
+      // panel sends none, so this always reported 0 products.
+      const products = await loadStorefrontVisibleProducts(client, shopId);
       const checklist = buildPublishChecklist({
         project,
         pages,
-        products: body.products || [],
+        products,
         commerce: project?.commerce_settings || body.commerce || {},
         shop,
         seo: project?.seo_settings || body.seo || {}
@@ -979,13 +991,12 @@ export async function handler(event) {
         // default but still lets the florist proceed on purpose via
         // override_checklist, same as the visible Launch checklist panel.
         if (!body.override_checklist) {
-          let products = [];
-          try {
-            const { data: productRows } = await client.from("products").select("publish_status,sync,primary_image").eq("shop_id", shopId).limit(500);
-            products = productRows || [];
-          } catch {
-            /* products table optional here — checklist degrades gracefully */
-          }
+          // A-1c: this used to select publish_status/sync/primary_image — columns
+          // `products` does not have. supabase-js returns that as { error }, not
+          // a throw, so the catch never ran and the gate always saw 0 products.
+          // Read exactly what the storefront shows; a real read failure now
+          // surfaces instead of silently reporting an empty catalog.
+          const products = await loadStorefrontVisibleProducts(client, shopId);
           const checklist = buildPublishChecklist({
             project: existing,
             pages,

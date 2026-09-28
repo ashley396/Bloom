@@ -35,7 +35,11 @@ test("POS checkout routes the customer's payment to the shop's own connected acc
 
 test("Website 'pay now' checkout (storefront-public.js) refuses to charge a customer when the shop has no connected Stripe account", () => {
   const src = files.storefrontPublic;
-  assert.match(src, /if \(!shop\.stripe_connect_account_id\) \{/);
+  // A-1c: an account id alone is not enough — Stripe must report the
+  // connected account can accept charges (behavior: storefront-order-completion tests).
+  assert.match(src, /if \(!accountId\) return \{ ready: false, reason: "no_account" \};/);
+  assert.match(src, /account\.charges_enabled === true/);
+  assert.match(src, /if \(!card\.ready\) \{/);
   assert.match(src, /code: "stripe_connect_required"/);
   const checkIndex = src.indexOf("stripe_connect_required");
   const sessionIndex = src.indexOf("stripe.checkout.sessions.create");

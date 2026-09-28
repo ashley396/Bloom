@@ -86,6 +86,8 @@ export function normalizeShopProduct(row = {}) {
     collections: data.collections || row.collections || [],
     primary_image: data.primary_image || row.primary_image || (row.image_url ? { url: row.image_url, alt: row.name } : null),
     retail_price: data.retail_price ?? row.price ?? data.price,
+    // A-1c: products.taxable is NOT NULL DEFAULT true; only an explicit false is non-taxable.
+    taxable: (data.taxable ?? row.taxable) !== false,
     sync: {
       available_online: sync.available_online !== false,
       available_pos: sync.available_pos !== false,
@@ -265,13 +267,19 @@ export function breadcrumbTrail(slug, pages) {
 // 3 × $19.99 cart is stored as 59.97, not 59.970000000000006.
 const toCents = (value) => Math.round(Number(value || 0) * 100) / 100;
 
+// A-1c: tax applies only to taxable lines (a line is taxable unless it says
+// taxable === false — server lines carry the catalog product's flag). A
+// discount reduces the taxable base pro rata.
 export function storefrontCartTotals(lines, taxRate = 0, deliveryFee = 0, discount = 0) {
-  const subtotal = toCents(lines.reduce((s, l) => s + Number(l.price || 0) * Number(l.qty || 1), 0));
+  const lineAmount = (l) => Number(l.price || 0) * Number(l.qty || 1);
+  const subtotal = toCents(lines.reduce((s, l) => s + lineAmount(l), 0));
+  const taxableLines = toCents(lines.filter((l) => l.taxable !== false).reduce((s, l) => s + lineAmount(l), 0));
   const afterDiscount = Math.max(0, toCents(subtotal - Number(discount || 0)));
-  const tax = Math.round(afterDiscount * (Number(taxRate || 0) / 100) * 100) / 100;
+  const taxableSubtotal = subtotal > 0 ? toCents(taxableLines * (afterDiscount / subtotal)) : 0;
+  const tax = Math.round(taxableSubtotal * (Number(taxRate || 0) / 100) * 100) / 100;
   const fee = toCents(deliveryFee);
   const total = toCents(afterDiscount + tax + fee);
-  return { subtotal, tax, deliveryFee: fee, discount: toCents(discount), total };
+  return { subtotal, taxableSubtotal, tax, deliveryFee: fee, discount: toCents(discount), total };
 }
 
 export function webOrderPayloadFromCart(cart, customer, shop, options = {}) {

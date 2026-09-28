@@ -27,7 +27,45 @@ export function mergeCommerceSettings(projectSettings = {}, shop = {}) {
   return raw;
 }
 
-export function deliveryDateValid(dateStr, leadDays = 0, now = new Date()) {
+// A-1c (2026-09-28): "today" for a storefront order is the SHOP's calendar
+// day, in the shop's own configured IANA timezone (shops.timezone) — never
+// the server's clock (UTC on Netlify) and never an assumed US zone. A missing
+// or invalid zone falls back to UTC (`fallback: true` tells callers it did).
+export function resolveShopTimeZone(timeZone) {
+  const zone = String(timeZone || "").trim();
+  if (!zone) return { timeZone: "UTC", fallback: true };
+  try {
+    new Intl.DateTimeFormat("en-US", { timeZone: zone });
+    return { timeZone: zone, fallback: false };
+  } catch {
+    return { timeZone: "UTC", fallback: true };
+  }
+}
+
+/** The calendar date (YYYY-MM-DD) it currently is in `timeZone`. */
+export function shopLocalDateString(now = new Date(), timeZone = "UTC") {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: resolveShopTimeZone(timeZone).timeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit"
+  }).formatToParts(now);
+  const part = (type) => parts.find((p) => p.type === type)?.value;
+  return `${part("year")}-${part("month")}-${part("day")}`;
+}
+
+function addCalendarDays(dateStr, days) {
+  const [y, m, d] = dateStr.split("-").map(Number);
+  return new Date(Date.UTC(y, m - 1, d + days)).toISOString().slice(0, 10);
+}
+
+/** Earliest pickup/delivery date the shop accepts: shop-local today + lead days. */
+export function earliestFulfillmentDate({ leadDays = 0, now = new Date(), timeZone } = {}) {
+  const lead = Number.isFinite(Number(leadDays)) ? Math.max(0, Math.floor(Number(leadDays))) : 0;
+  return addCalendarDays(shopLocalDateString(now, timeZone), lead);
+}
+
+export function deliveryDateValid(dateStr, leadDays = 0, now = new Date(), timeZone = "UTC") {
   if (!dateStr || !String(dateStr).trim()) return { valid: false, error: "Choose a delivery or pickup date." };
   // A-1b (2026-09-28): only a real YYYY-MM-DD calendar date is accepted.
   // `new Date("2026-02-30T12:00:00")` silently rolls over to March 2, which
@@ -41,38 +79,56 @@ export function deliveryDateValid(dateStr, leadDays = 0, now = new Date()) {
     return { valid: false, error: "Invalid date." };
   }
   dateStr = text;
-  const d = new Date(`${dateStr}T12:00:00`);
-  if (Number.isNaN(d.getTime())) return { valid: false, error: "Invalid date." };
-  const today = new Date(now);
-  today.setHours(0, 0, 0, 0);
-  const min = new Date(today);
-  min.setDate(min.getDate() + Math.max(0, Number(leadDays || 0)));
-  if (d < min) {
+  // Both sides are YYYY-MM-DD, so a string comparison is a calendar comparison.
+  if (dateStr < earliestFulfillmentDate({ leadDays, now, timeZone })) {
+    const lead = Number.isFinite(Number(leadDays)) ? Math.max(0, Math.floor(Number(leadDays))) : 0;
     return {
       valid: false,
-      error: leadDays > 0 ? `Orders need at least ${leadDays} day(s) lead time.` : "Date cannot be in the past."
+      error: lead > 0 ? `Orders need at least ${lead} day(s) lead time.` : "Date cannot be in the past."
     };
   }
   return { valid: true, value: dateStr };
+}
+
+// A-1c: a public cart quantity is a whole number from 1 to the existing
+// per-line maximum. Anything else is rejected — never silently turned into 1
+// (the old clamp charged "abc" as 1 and 1.5 as 1.5).
+export const STOREFRONT_MAX_LINE_QTY = 99;
+
+export function parseCartQuantity(value) {
+  let n = null;
+  if (typeof value === "number") n = value;
+  else if (typeof value === "string" && /^\d{1,3}$/.test(value.trim())) n = Number(value.trim());
+  if (!Number.isInteger(n) || n < 1 || n > STOREFRONT_MAX_LINE_QTY) return null;
+  return n;
 }
 
 export function reconcileCartLines(cartLines = [], catalogProducts = []) {
   const errors = [];
   const byId = new Map(catalogProducts.map((p) => [String(p.id), p]));
   const lines = [];
+  const qtyByProduct = new Map();
+  if (cartLines != null && !Array.isArray(cartLines)) return { valid: false, errors: ["Your cart could not be read."], lines, subtotal: 0 };
 
   for (const raw of cartLines || []) {
-    const id = String(raw.id || "");
-    const qty = Math.max(1, Math.min(99, Number(raw.qty || 1)));
+    const id = String(raw?.id || "");
     const product = byId.get(id);
     if (!product) {
-      errors.push(`Product ${id || raw.name || "unknown"} is no longer available.`);
+      errors.push(`Product ${id || raw?.name || "unknown"} is no longer available.`);
       continue;
     }
     if (!productVisibleOnPublicSite(product)) {
       errors.push(`${product.name} is not available online.`);
       continue;
     }
+    const qty = parseCartQuantity(raw.qty);
+    // The maximum applies per product, so splitting it across duplicate lines cannot exceed it.
+    const productQty = (qtyByProduct.get(id) || 0) + (qty || 0);
+    if (qty === null || productQty > STOREFRONT_MAX_LINE_QTY) {
+      errors.push(`Quantity for ${product.name} must be a whole number from 1 to ${STOREFRONT_MAX_LINE_QTY}.`);
+      continue;
+    }
+    qtyByProduct.set(id, productQty);
     const price = Number(product.retail_price ?? product.price ?? 0);
     if (!Number.isFinite(price) || price < 0) {
       errors.push(`${product.name} has no valid price.`);
@@ -83,7 +139,10 @@ export function reconcileCartLines(cartLines = [], catalogProducts = []) {
       name: product.name,
       price,
       qty,
-      product_id: product.id
+      product_id: product.id,
+      // A-1c: taxability comes only from the catalog product (products.taxable,
+      // NOT NULL DEFAULT true) — a browser-sent `taxable` is never read.
+      taxable: product.taxable !== false
     });
   }
 
@@ -105,7 +164,7 @@ export function computeDepositAmount(total, depositPercent = 0) {
   return Math.max(0.5, Math.round(deposit * 100) / 100);
 }
 
-export function validateStorefrontCheckout(body = {}, settings = {}, now = new Date()) {
+export function validateStorefrontCheckout(body = {}, settings = {}, now = new Date(), { timeZone } = {}) {
   const errors = [];
   const name = clampText(body.customer?.name || body.customer_name, 120);
   if (!name) errors.push("Your name is required.");
@@ -134,7 +193,7 @@ export function validateStorefrontCheckout(body = {}, settings = {}, now = new D
 
   // A-1b: "now" is never taken from the (untrusted, public) request body —
   // a body `_now` used to let any caller bypass the past-date and lead-days rules.
-  const dateCheck = deliveryDateValid(body.options?.delivery_date, settings.delivery_lead_days, now);
+  const dateCheck = deliveryDateValid(body.options?.delivery_date, settings.delivery_lead_days, now, timeZone);
   if (!dateCheck.valid) errors.push(dateCheck.error);
 
   const mode = String(body.payment_mode || "pay_later").toLowerCase();
@@ -248,6 +307,38 @@ export function storefrontCommerceHandoff({ order, paymentMode, checkoutUrl, pay
     create_checkout_requires_staff: true
   };
 }
+
+// A-1c: WEB order numbers are globally unique (orders.order_number UNIQUE).
+// The old `WEB-<last 8 digits of Date.now()>` collided for two orders in the
+// same millisecond and wrapped every ~27.8 h. Now: shop-local date + 6
+// characters from a 32-symbol alphabet with no 0/O/1/I (~1.07e9 codes per
+// day), and the insert retries on a unique violation.
+const ORDER_CODE_ALPHABET = "23456789ABCDEFGHJKLMNPQRSTUVWXYZ";
+
+export function generateWebOrderNumber({ now = new Date(), timeZone, randomInt = crypto.randomInt } = {}) {
+  const day = shopLocalDateString(now, timeZone).slice(2).replace(/-/g, "");
+  let code = "";
+  for (let i = 0; i < 6; i += 1) code += ORDER_CODE_ALPHABET[randomInt(ORDER_CODE_ALPHABET.length)];
+  return `WEB-${day}-${code}`;
+}
+
+export function isOrderNumberConflict(error) {
+  return error?.code === "23505" && /order_number/i.test(`${error.message || ""} ${error.details || ""} ${error.constraint || ""}`);
+}
+
+// A-1c: the ONE place both the public GET and checkout decide which payment
+// options exist. `cardReady` must come from a live, server-side Stripe check
+// that the shop's connected account can accept charges — never from the
+// mere existence of a Connect account id.
+export function resolveStorefrontPaymentModes(settings = {}, { cardReady = false } = {}) {
+  return [
+    ...(settings.stripe_checkout_enabled && cardReady ? ["pay_now"] : []),
+    ...(settings.pay_later_enabled ? ["pay_later"] : [])
+  ];
+}
+
+export const ONLINE_ORDERING_UNAVAILABLE_MESSAGE =
+  "Online ordering is currently unavailable for this shop. Please call or visit the florist to place your order.";
 
 export function minOrderMet(subtotal, minAmount = 0) {
   const min = Number(minAmount || 0);

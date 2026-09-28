@@ -85,11 +85,25 @@ function fakeAdmin(tables) {
   };
 }
 
-function stripeStub() {
+/**
+ * Stubbed Stripe (no network, no real charge). `accounts.retrieve` answers the
+ * A-1c live readiness check; `chargesEnabled` / `retrieveFails` model a
+ * half-onboarded account and a Stripe outage.
+ */
+function stripeStub({ chargesEnabled = true, retrieveFails = false } = {}) {
   const created = [];
+  const retrieved = [];
   return {
     created,
+    retrieved,
     factory: () => ({
+      accounts: {
+        retrieve: async (id) => {
+          retrieved.push(id);
+          if (retrieveFails) throw Object.assign(new Error("stripe down"), { type: "StripeConnectionError" });
+          return { id, charges_enabled: chargesEnabled, payouts_enabled: chargesEnabled, details_submitted: chargesEnabled };
+        }
+      },
       checkout: { sessions: { create: async (params, opts) => { created.push({ params, opts }); return { id: "cs_test_stub", url: "https://checkout.stripe.test/cs_test_stub" }; } } }
     })
   };
@@ -104,10 +118,10 @@ async function withEnv(vars, fn) {
   }
 }
 
-function setup(seedOpts = {}, { stripe } = {}) {
+function setup(seedOpts = {}, { stripe = stripeStub(), newOrderNumber } = {}) {
   const tables = seed(seedOpts);
   const client = fakeAdmin(tables);
-  const handler = createStorefrontPublicHandler({ admin: () => client, createStripe: stripe?.factory });
+  const handler = createStorefrontPublicHandler({ admin: () => client, createStripe: stripe.factory, newOrderNumber });
   return { tables, client, handler };
 }
 
@@ -258,6 +272,7 @@ test("pay-now reaches the Stripe Checkout session stage (stubbed — no real cha
     assert.equal(params.success_url.startsWith("https://staging.example/store/shop-a/"), true);
     assert.equal(JSON.parse(res.body).handoff.checkout_url, "https://checkout.stripe.test/cs_test_stub");
     assert.equal(writesTo(client, "orders").length, 1);
+    assert.deepEqual(stripe.retrieved, ["acct_test_shopA"], "checkout asks Stripe fresh whether the account can accept charges");
   });
 });
 
@@ -285,17 +300,47 @@ test("pay-now that cannot succeed (no Stripe key, or no Connect account) fails B
     assert.match(JSON.parse(r3.body).error, /SITE_URL/);
     assertNoMutation(noSite.client, "pay-now without a site base URL");
   });
-  assert.equal(stripe.created.length, 0, "no Stripe session may be created when pay-now is not possible");
+  // A-1c: an account id that exists but can't accept charges (onboarding
+  // unfinished) is NOT payment-ready, and a Stripe outage fails closed.
+  const halfOnboarded = stripeStub({ chargesEnabled: false });
+  const outage = stripeStub({ retrieveFails: true });
+  await withEnv({ STRIPE_SECRET_KEY: "sk_test_stub_only", SITE_URL: "https://staging.example" }, async () => {
+    const pending = setup({ connect: "acct_test_pending" }, { stripe: halfOnboarded });
+    const r4 = await pending.handler(order({ action: "create_web_checkout", payment_mode: "pay_now" }));
+    assert.equal(r4.statusCode, 409, r4.body);
+    assert.equal(JSON.parse(r4.body).code, "stripe_connect_required");
+    assertNoMutation(pending.client, "pay-now with charges disabled");
+    const down = setup({ connect: "acct_test_shopA" }, { stripe: outage });
+    const r5 = await down.handler(order({ action: "create_web_checkout", payment_mode: "pay_now" }));
+    assert.equal(r5.statusCode, 503, r5.body);
+    assertNoMutation(down.client, "pay-now during a Stripe outage");
+  });
+  for (const s of [stripe, halfOnboarded, outage]) {
+    assert.equal(s.created.length, 0, "no Stripe session may be created when pay-now is not possible");
+  }
 });
 
-test("the public site only offers 'pay now' when card checkout can actually succeed (key AND the shop's Connect account)", async () => {
+test("the public site only offers 'pay now' when Stripe confirms the shop's connected account can accept charges", async () => {
   await withEnv({ STRIPE_SECRET_KEY: "sk_test_stub_only" }, async () => {
     const get = (h) => h({ httpMethod: "GET", headers: {}, queryStringParameters: { shop: "shop-a" } });
     const withoutConnect = JSON.parse((await get(setup({ connect: null }).handler)).body);
     assert.deepEqual(withoutConnect.commerce.payment_modes, ["pay_later"]);
     assert.equal(withoutConnect.commerce.stripe_available, false);
-    const withConnect = JSON.parse((await get(setup({ connect: "acct_test_shopA" }).handler)).body);
-    assert.deepEqual(withConnect.commerce.payment_modes, ["pay_now", "pay_later"]);
+    const ready = JSON.parse((await get(setup({ connect: "acct_test_shopA" }).handler)).body);
+    assert.deepEqual(ready.commerce.payment_modes, ["pay_now", "pay_later"]);
+    // An id alone (onboarding unfinished) or a Stripe outage never advertises pay-now.
+    const pending = JSON.parse((await get(setup({ connect: "acct_test_pending" }, { stripe: stripeStub({ chargesEnabled: false }) }).handler)).body);
+    assert.deepEqual(pending.commerce.payment_modes, ["pay_later"]);
+    const down = JSON.parse((await get(setup({ connect: "acct_test_shopA" }, { stripe: stripeStub({ retrieveFails: true }) }).handler)).body);
+    assert.deepEqual(down.commerce.payment_modes, ["pay_later"]);
+  });
+  // The public readiness answer is cached per function instance (5 min) so a
+  // busy storefront doesn't call Stripe on every page view.
+  await withEnv({ STRIPE_SECRET_KEY: "sk_test_stub_only" }, async () => {
+    const stripe = stripeStub();
+    const { handler } = setup({ connect: "acct_test_shopA" }, { stripe });
+    for (let i = 0; i < 3; i += 1) await handler({ httpMethod: "GET", headers: {}, queryStringParameters: { shop: "shop-a" } });
+    assert.equal(stripe.retrieved.length, 1);
   });
 });
 

@@ -184,6 +184,10 @@ h2 {
   align-items: center;
   margin: 6px 0;
 }
+/* A-1c: this rule's selector was lost in f9f1e0f (2026-07-28), which also
+   invalidated the input rule below — labels ran inline and inputs lost their
+   full width / tap height. */
+.checkout-form label {
   display: block;
   margin-bottom: 10px;
 }
@@ -327,5 +331,20 @@ h2 {
    375px phone) and the notice never stayed on screen. Re-assert them here. */
 body.bloom-storefront > .storefront-cart { position: fixed; z-index: 20; box-sizing: border-box; }
 body.bloom-storefront > .storefront-notice { position: fixed; z-index: 1000; box-sizing: border-box; }
+body.bloom-storefront > .storefront-header { position: sticky; top: 0; z-index: 10; }
+body.bloom-storefront > .skip-link { position: absolute; z-index: 99; }
+.checkout-form input[type="radio"] { width: auto; min-height: 0; margin-top: 0; }
+.checkout-error,
+.checkout-unavailable {
+  margin: 10px 0;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: #fdecec;
+  color: #8a1c1c;
+  border: 1px solid #f3c2c2;
+  overflow-wrap: anywhere;
+}
+.checkout-error[hidden],
+.checkout-unavailable[hidden] { display: none; }
 /* Keep the drawer's last controls scrollable above a visible notice. */
 body:has(.storefront-notice:not([hidden])) .storefront-cart { padding-bottom: 140px; }

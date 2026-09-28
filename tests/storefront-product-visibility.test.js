@@ -216,7 +216,13 @@ test("web checkout cannot buy a hidden product: the cart is reconciled against t
 
 test("the storefront reads legacy products through exactly one loader (no second, ungated query)", async () => {
   const fs = await import("node:fs");
-  const src = fs.readFileSync(new URL("../netlify/functions/storefront-public.js", import.meta.url), "utf8");
+  // A-1c: the loader moved to a shared module so Website Studio's publish
+  // checklist reads exactly the same products; the handler itself must not
+  // grow a second products query.
+  const handlerSrc = fs.readFileSync(new URL("../netlify/functions/storefront-public.js", import.meta.url), "utf8");
+  assert.equal((handlerSrc.match(/from\("products"\)/g) || []).length, 0);
+  assert.match(handlerSrc, /import \{ legacyProductIsPublic, loadPublicProducts \} from "\.\/_shared\/bloom-storefront-products\.js";/);
+  const src = fs.readFileSync(new URL("../netlify/functions/_shared/bloom-storefront-products.js", import.meta.url), "utf8");
   assert.equal((src.match(/from\("products"\)/g) || []).length, 1);
   assert.doesNotMatch(src, /p\.show_online/, "the non-existent show_online column must never be read again");
   assert.match(src, /\.is\("deleted_at", null\)/);

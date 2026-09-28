@@ -19,9 +19,12 @@
   }
 
   let noticeTimer = null;
-  function announce(msg, { transient = false } = {}) {
+  function announce(msg, { transient = false, visual = true } = {}) {
     const el = document.getElementById("liveRegion");
     if (el) el.textContent = msg;
+    // A-1c: messages shown inline (checkout errors) skip the floating notice
+    // so it can never sit over the Place order button.
+    if (!visual) return;
     // A-1b: the live region is visually hidden, so a customer saw nothing
     // after "Place order". Mirror the message into a visible notice (its text
     // is aria-hidden so screen readers hear it once, via the live region).
@@ -292,9 +295,20 @@
   }
 
   function defaultDeliveryDate(leadDays) {
+    // A-1c: the server computes the shop-local earliest date (shops.timezone
+    // + lead days); the browser's own clock/timezone is only a fallback.
+    if (/^\d{4}-\d{2}-\d{2}$/.test(String(state.commerce?.earliest_date || ""))) return state.commerce.earliest_date;
     const d = new Date();
     d.setDate(d.getDate() + Math.max(0, Number(leadDays || 0)));
-    return d.toISOString().slice(0, 10);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  }
+
+  function showCheckoutError(msg) {
+    const el = document.getElementById("checkoutError");
+    if (el) {
+      el.textContent = msg || "";
+      el.hidden = !msg;
+    }
   }
 
   function syncDeliveryFields() {
@@ -321,8 +335,21 @@
       fieldset.hidden = modes.length <= 1;
     }
     const dateInput = document.querySelector('#checkoutForm input[name="delivery_date"]');
-    if (dateInput && !dateInput.value) dateInput.value = defaultDeliveryDate(commerce.delivery_lead_days);
-    if (dateInput) dateInput.min = defaultDeliveryDate(commerce.delivery_lead_days);
+    const earliest = defaultDeliveryDate(commerce.delivery_lead_days);
+    if (dateInput && (!dateInput.value || dateInput.value < earliest)) dateInput.value = earliest;
+    if (dateInput) dateInput.min = earliest;
+    // A-1c: with no usable payment option the customer is told BEFORE they
+    // fill in the form, and Place order is disabled (the server also refuses).
+    const unavailable = commerce.ordering_available === false || !modes.length;
+    const unavailableEl = document.getElementById("checkoutUnavailable");
+    if (unavailableEl) {
+      unavailableEl.textContent = unavailable
+        ? commerce.unavailable_message || "Online ordering is currently unavailable for this shop. Please call or visit the florist to place your order."
+        : "";
+      unavailableEl.hidden = !unavailable;
+    }
+    const submit = document.getElementById("checkoutSubmit");
+    if (submit) submit.disabled = unavailable;
     const note = document.getElementById("checkoutPaymentNote");
     if (note) {
       note.textContent =
@@ -369,7 +396,11 @@
       .join("");
     const sub = state.cart.reduce((s, l) => s + l.price * l.qty, 0);
     const taxRate = Number(state.site?.site?.shop?.tax_rate || 0);
-    const tax = Math.round(sub * (taxRate / 100) * 100) / 100;
+    // Estimate only — the server recomputes from each catalog product's taxable flag.
+    const taxableSub = state.cart
+      .filter((l) => state.products.find((p) => String(p.id) === String(l.id))?.taxable !== false)
+      .reduce((s, l) => s + l.price * l.qty, 0);
+    const tax = Math.round(taxableSub * (taxRate / 100) * 100) / 100;
     const deliveryDefault = Number(state.commerce?.default_delivery_fee ?? state.site?.site?.shop?.default_delivery_fee ?? 0);
     document.getElementById("cartTotals").textContent = `Subtotal $${sub.toFixed(2)} + est. tax $${tax.toFixed(2)}${deliveryDefault ? ` · delivery from $${deliveryDefault.toFixed(2)}` : ""}`;
     const detail = document.getElementById("checkoutTotalsDetail");
@@ -402,6 +433,12 @@
       const p = state.products.find((x) => String(x.id) === btn.dataset.id);
       if (!p) return;
       const line = state.cart.find((l) => l.id === p.id);
+      // A-1c: the server rejects a line over 99 (it no longer clamps), and the
+      // cart has no way to reduce a quantity — so never build one.
+      if (line && line.qty >= 99) {
+        announce(`You can order up to 99 of ${p.name} online. Call the shop for larger orders.`, { transient: true });
+        return;
+      }
       if (line) line.qty += 1;
       else state.cart.push({ id: p.id, name: p.name, price: Number(p.retail_price || 0), qty: 1 });
       saveCart();
@@ -416,6 +453,7 @@
       if (submitBtn) {
         submitBtn.disabled = true;
         submitBtn.textContent = "Submitting…";
+        showCheckoutError("");
       }
       const paymentMode = fd.get("payment_mode") || "pay_later";
       const payload = {
@@ -446,9 +484,12 @@
         });
         const data = await res.json();
         if (!res.ok) {
-          announce(data.error || "Checkout failed");
+          const err = data.error || "Checkout failed";
+          showCheckoutError(err);
+          announce(err, { visual: false });
           return;
         }
+        showCheckoutError("");
         state.cart = [];
         saveCart();
         renderCart();

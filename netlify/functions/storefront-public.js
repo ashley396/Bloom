@@ -7,7 +7,6 @@ import {
   resolvePublishedSite,
   fallbackSiteFromProfile,
   filterPublicProducts,
-  mergeCatalogProducts,
   verifyPreviewToken,
   signPreviewToken,
   buildPublishedSitemapXml,
@@ -23,8 +22,14 @@ import {
   buildPublicStripeSessionParams,
   newWebCheckoutIdempotencyKey,
   storefrontCommerceHandoff,
-  minOrderMet
+  minOrderMet,
+  earliestFulfillmentDate,
+  generateWebOrderNumber,
+  isOrderNumberConflict,
+  resolveStorefrontPaymentModes,
+  ONLINE_ORDERING_UNAVAILABLE_MESSAGE
 } from "./_shared/bloom-storefront-commerce.js";
+import { legacyProductIsPublic, loadPublicProducts } from "./_shared/bloom-storefront-products.js";
 import {
   generatePaymentLinkToken,
   hashPaymentLinkToken,
@@ -66,65 +71,45 @@ async function loadWebsiteBundle(client, shopId) {
   }
 }
 
-/**
- * Phase A-1 (2026-09-28): the ONLY product reader every public storefront
- * surface goes through (site JSON, sitemap, and web checkout's cart
- * reconciliation all call this, then filterPublicProducts()).
- *
- * A legacy `products` row is public only when ALL of:
- *   - available_online = true   (the column is NOT NULL DEFAULT false — the
- *                                 old code tested a non-existent `show_online`
- *                                 column, so every product read as public)
- *   - active <> false           (inactive → "draft" → hidden by
- *                                 productVisibleOnPublicSite)
- *   - deleted_at IS NULL        (soft-deleted rows were never excluded)
- *   - shop_id = this shop       (query-scoped; never trust the caller)
- */
-export function legacyProductIsPublic(p) {
-  return Boolean(p) && p.available_online === true && p.active !== false && p.deleted_at == null;
-}
+// Phase A-1 / A-1c: the one product reader lives in
+// _shared/bloom-storefront-products.js so Website Studio's publish checklist
+// counts exactly what this storefront shows. Re-exported for existing callers.
+export { legacyProductIsPublic };
 
-async function loadPublicProducts(client, shopId) {
-  const legacy = [];
-  try {
-    const { data, error } = await client
-      .from("products")
-      .select("*")
-      .eq("shop_id", shopId)
-      .is("deleted_at", null);
-    if (error) throw error;
-    (data || []).forEach((p) => {
-      // Defensive re-check in code: the query already excludes deleted rows
-      // and scopes the shop, but the visibility contract is enforced here
-      // too so a looser query can never widen what the storefront exposes.
-      if (String(p.shop_id) !== String(shopId) || p.deleted_at != null) return;
-      legacy.push({
-        id: p.id,
-        name: p.name,
-        description: p.description,
-        price: p.price,
-        image_url: p.image_url,
-        categories: p.category ? [p.category] : [],
-        publish_status: p.active === false ? "draft" : "published",
-        sync: { available_online: legacyProductIsPublic(p), show_price_online: true }
-      });
-    });
-  } catch (e) {
-    if (!missingTable(e)) throw e;
-  }
-  let catalog = [];
-  try {
-    const { data, error } = await client.from("bloom_shop_catalog_products").select("*").eq("shop_id", shopId);
-    if (error) throw error;
-    catalog = data || [];
-  } catch (e) {
-    if (!missingTable(e)) throw e;
-  }
-  return mergeCatalogProducts(catalog, legacy);
-}
+// A-1c (2026-09-28): card checkout readiness is a LIVE server-side Stripe
+// fact — the shop's connected account must report charges_enabled. A saved
+// stripe_connect_account_id alone proves nothing: stripe-connect.js saves it
+// the moment the Express account is created, before onboarding finishes.
+// Any Stripe error fails closed. Public page loads reuse a result for up to
+// 5 minutes per function instance; checkout always asks Stripe fresh.
+const CARD_READY_CACHE_MS = 5 * 60_000;
+// A Stripe outage must hide pay-now, not stall the storefront page: the
+// readiness lookup gets a short timeout, no retries, and a brief failure cache.
+const CARD_READY_FAILURE_CACHE_MS = 60_000;
+const CARD_READY_STRIPE_OPTIONS = { timeout: 3000, maxNetworkRetries: 0 };
 
-function orderNumber() {
-  return `WEB-${Date.now().toString().slice(-8)}`;
+function createCardReadinessCheck(createStripe) {
+  const cache = new Map();
+  return async function cardPaymentsReady(shop, { fresh = false } = {}) {
+    if (!process.env.STRIPE_SECRET_KEY) return { ready: false, reason: "no_key" };
+    const accountId = String(shop?.stripe_connect_account_id || "");
+    if (!accountId) return { ready: false, reason: "no_account" };
+    const cached = cache.get(accountId);
+    if (!fresh && cached && Date.now() - cached.at < cached.ttl) return cached.result;
+    let result;
+    let ttl = CARD_READY_CACHE_MS;
+    try {
+      const account = await createStripe(process.env.STRIPE_SECRET_KEY, CARD_READY_STRIPE_OPTIONS).accounts.retrieve(accountId);
+      result = account?.id === accountId && account.charges_enabled === true
+        ? { ready: true, reason: "charges_enabled" }
+        : { ready: false, reason: "charges_disabled" };
+    } catch {
+      result = { ready: false, reason: "stripe_unavailable" };
+      ttl = CARD_READY_FAILURE_CACHE_MS;
+    }
+    cache.set(accountId, { at: Date.now(), ttl, result });
+    return result;
+  };
 }
 
 function commerceSettingsFromBundle(bundle, shop) {
@@ -171,7 +156,15 @@ async function maybeCreatePaymentLink(client, { shopId, order, balance, customer
   return url;
 }
 
-async function createWebCommerceOrder(client, { shop, bundle, body, event, createStripe = (key) => new Stripe(key) }) {
+async function createWebCommerceOrder(client, {
+  shop,
+  bundle,
+  body,
+  event,
+  createStripe = (key, options) => new Stripe(key, options),
+  cardPaymentsReady = createCardReadinessCheck(createStripe),
+  newOrderNumber = generateWebOrderNumber
+}) {
   const rate = checkRateLimit(event, { key: "storefront_checkout", limit: 30, windowMs: 60_000 });
   if (!rate.allowed) return json(429, { error: "Too many checkout attempts. Please wait a moment." });
 
@@ -181,11 +174,23 @@ async function createWebCommerceOrder(client, { shop, bundle, body, event, creat
     return json(403, { error: "Online ordering available when site is published." });
   }
 
+  // A-1c: fail closed BEFORE any work when the shop has no usable payment
+  // option (pay-later off and card checkout not actually ready).
+  const requestedMode = String(body.payment_mode || "pay_later").toLowerCase();
+  // Stripe is only asked when card checkout is enabled for this shop at all.
+  const card = settings.stripe_checkout_enabled && (requestedMode === "pay_now" || !settings.pay_later_enabled)
+    ? await cardPaymentsReady(shop, { fresh: true })
+    : { ready: false, reason: "not_checked" };
+  if (!resolveStorefrontPaymentModes(settings, { cardReady: card.ready }).length) {
+    return json(403, { error: ONLINE_ORDERING_UNAVAILABLE_MESSAGE, code: "online_ordering_unavailable" });
+  }
+
   const catalog = filterPublicProducts(await loadPublicProducts(client, shop.id));
   const reconciled = reconcileCartLines(body.cart?.lines || [], catalog);
   if (!reconciled.valid) return json(400, { error: reconciled.errors[0] });
 
-  const checkoutValid = validateStorefrontCheckout(body, settings);
+  // A-1c: "today" is the shop's own calendar day (shops.timezone).
+  const checkoutValid = validateStorefrontCheckout(body, settings, new Date(), { timeZone: shop.timezone });
   if (!checkoutValid.valid) return json(400, { error: checkoutValid.errors[0] });
 
   const minOk = minOrderMet(reconciled.subtotal, settings.min_order_amount);
@@ -214,13 +219,16 @@ async function createWebCommerceOrder(client, { shop, bundle, body, event, creat
   const wantsCardNow = paymentMode === "pay_now" && charge >= 0.5;
   let cardSiteBase = "";
   if (wantsCardNow) {
-    if (!process.env.STRIPE_SECRET_KEY) {
+    if (card.reason === "no_key") {
       return json(503, { error: "Card payments are not configured for this shop." });
     }
-    // Without this check the Checkout Session would still be created with no
-    // transfer_data.destination, so the money would settle into Florisyn's
-    // own platform balance instead of this shop's.
-    if (!shop.stripe_connect_account_id) {
+    if (card.reason === "stripe_unavailable") {
+      return json(503, { error: "Card payments are temporarily unavailable. Please choose pay later or try again shortly." });
+    }
+    // Without a connected account that can accept charges the Checkout
+    // Session would either fail after the order was written or settle into
+    // Florisyn's own platform balance instead of this shop's.
+    if (!card.ready) {
       return json(409, {
         error: "This shop hasn't finished setting up card payments yet. Please choose pay-at-delivery, or contact the florist directly to arrange payment.",
         code: "stripe_connect_required"
@@ -231,7 +239,7 @@ async function createWebCommerceOrder(client, { shop, bundle, body, event, creat
   }
   const row = {
     shop_id: shop.id,
-    order_number: orderNumber(),
+    order_number: null,
     customer_name: clampText(customer.name || checkoutValid.sanitized.customer_name, 120),
     customer_phone: customer.phone || null,
     recipient_name: clampText(customer.recipient_name || customer.name, 120),
@@ -250,7 +258,14 @@ async function createWebCommerceOrder(client, { shop, bundle, body, event, creat
     order_source: "Website",
     arrangement_description: description,
     card_message: options.card_message ? clampText(options.card_message, 500) : null,
-    notes: options.delivery_instructions ? clampText(options.delivery_instructions, 1000) : null
+    notes: options.delivery_instructions ? clampText(options.delivery_instructions, 1000) : null,
+    // A-1c: orders has no customer_email column; the order's own metadata is
+    // the existing schema location (create_order_atomic stores p_order.metadata
+    // the same way). Validated below by the shared order contract.
+    metadata: {
+      source: "storefront",
+      ...(String(customer.email || "").trim() ? { customer_email: String(customer.email).trim() } : {})
+    }
   };
 
   // A-1b (2026-09-28): the shared order contract is applied to the SAME
@@ -271,9 +286,20 @@ async function createWebCommerceOrder(client, { shop, bundle, body, event, creat
   });
   if (!validation.valid) return json(400, { error: validation.errors[0] });
 
-  const { data: order, error } = await client.from("orders").insert(row).select("*").single();
-  if (error) {
+  // A-1c: orders.order_number is globally UNIQUE; a collision leaves no row,
+  // so retrying with a fresh number is safe.
+  let order = null;
+  let error = null;
+  for (let attempt = 0; attempt < 3 && !order; attempt += 1) {
+    row.order_number = newOrderNumber({ timeZone: shop.timezone });
+    const result = await client.from("orders").insert(row).select("*").single();
+    order = result.error ? null : result.data;
+    error = result.error || null;
+    if (error && !isOrderNumberConflict(error)) break;
+  }
+  if (!order) {
     if (missingTable(error)) return json(503, { error: "Orders table unavailable." });
+    if (isOrderNumberConflict(error)) return json(503, { error: "We couldn't save your order just now. Please try again." });
     throw error;
   }
 
@@ -332,7 +358,9 @@ async function createWebCommerceOrder(client, { shop, bundle, body, event, creat
 export function createStorefrontPublicHandler(deps = {}) {
   const getAdmin = deps.admin || admin;
   const authenticate = deps.currentUser || currentUser;
-  const createStripe = deps.createStripe || ((key) => new Stripe(key));
+  const createStripe = deps.createStripe || ((key, options) => new Stripe(key, options));
+  const cardPaymentsReady = createCardReadinessCheck(createStripe);
+  const newOrderNumber = deps.newOrderNumber || generateWebOrderNumber;
 
   return async function handler(event) {
     const ready = preflight(event);
@@ -408,21 +436,23 @@ export function createStorefrontPublicHandler(deps = {}) {
         });
 
         const commerce = commerceSettingsFromBundle(bundle, shop);
-        // A-1b: card checkout is only offered when a platform Stripe key AND
-        // this shop's own connected account id exist. (An id is saved before
-        // Connect onboarding finishes — charges-enabled is not checked here.)
-        const stripeConfigured = Boolean(process.env.STRIPE_SECRET_KEY) && Boolean(shop.stripe_connect_account_id);
+        // A-1c: card checkout is offered only when Stripe confirms the shop's
+        // connected account can accept charges (see createCardReadinessCheck).
+        const card = commerce.stripe_checkout_enabled ? await cardPaymentsReady(shop) : { ready: false };
+        const paymentModes = resolveStorefrontPaymentModes(commerce, { cardReady: card.ready });
+        const orderingAvailable = commerce.online_ordering_enabled !== false && paymentModes.length > 0;
         return json(200, {
           preview,
           site: resolved,
           products,
           commerce: {
             ...commerce,
-            stripe_available: stripeConfigured && commerce.stripe_checkout_enabled,
-            payment_modes: [
-              ...(commerce.stripe_checkout_enabled && stripeConfigured ? ["pay_now"] : []),
-              ...(commerce.pay_later_enabled ? ["pay_later"] : [])
-            ]
+            stripe_available: paymentModes.includes("pay_now"),
+            payment_modes: paymentModes,
+            ordering_available: orderingAvailable,
+            unavailable_message: orderingAvailable ? null : ONLINE_ORDERING_UNAVAILABLE_MESSAGE,
+            // Shop-local earliest pickup/delivery date (shops.timezone + lead days).
+            earliest_date: earliestFulfillmentDate({ leadDays: commerce.delivery_lead_days, timeZone: shop.timezone })
           },
           domain: {
             // Launch-repair: this used to hardcode `${slug}.bloom-sites.com`
@@ -449,7 +479,9 @@ export function createStorefrontPublicHandler(deps = {}) {
         const shop = await shopBySlug(client, slug);
         if (!shop) return json(404, { error: "Shop not found." });
         const bundle = await loadWebsiteBundle(client, shop.id);
-        return createWebCommerceOrder(client, { shop, bundle, body, event, createStripe });
+        // A-1c: awaited so a rejection reaches the catch below (fail() → JSON 500)
+        // instead of escaping the handler as an unhandled function error.
+        return await createWebCommerceOrder(client, { shop, bundle, body, event, createStripe, cardPaymentsReady, newOrderNumber });
       }
 
       if (action === "preview_token") {

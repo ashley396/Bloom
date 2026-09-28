@@ -30,6 +30,7 @@
     <p id="cartTotals" class="cart-totals"></p>
     <form id="checkoutForm" class="checkout-form">
       <h3>Checkout details</h3>
+      <p id="checkoutUnavailable" class="checkout-unavailable" hidden></p>
       <label>Your name<input name="name" required autocomplete="name"></label>
       <label>Phone<input name="phone" type="tel" required autocomplete="tel"></label>
       <label>Email<input name="email" type="email" autocomplete="email"></label>
@@ -45,6 +46,7 @@
         <label><input type="radio" name="payment_mode" value="pay_later" checked> Pay with florist later</label>
       </fieldset>
       <p id="checkoutTotalsDetail" class="cart-totals"></p>
+      <p id="checkoutError" class="checkout-error" hidden></p>
       <button type="submit" class="primary" id="checkoutSubmit">Place order</button>
       <p class="subtle" id="checkoutPaymentNote">Secure card checkout opens on Stripe when you choose pay now.</p>
     </form>
