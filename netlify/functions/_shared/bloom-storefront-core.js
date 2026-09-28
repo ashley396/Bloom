@@ -261,12 +261,17 @@ export function breadcrumbTrail(slug, pages) {
   return crumbs;
 }
 
+// A-1b (2026-09-28): every web-order money figure is rounded to cents so a
+// 3 × $19.99 cart is stored as 59.97, not 59.970000000000006.
+const toCents = (value) => Math.round(Number(value || 0) * 100) / 100;
+
 export function storefrontCartTotals(lines, taxRate = 0, deliveryFee = 0, discount = 0) {
-  const subtotal = lines.reduce((s, l) => s + Number(l.price || 0) * Number(l.qty || 1), 0);
-  const afterDiscount = Math.max(0, subtotal - Number(discount || 0));
+  const subtotal = toCents(lines.reduce((s, l) => s + Number(l.price || 0) * Number(l.qty || 1), 0));
+  const afterDiscount = Math.max(0, toCents(subtotal - Number(discount || 0)));
   const tax = Math.round(afterDiscount * (Number(taxRate || 0) / 100) * 100) / 100;
-  const total = afterDiscount + tax + Number(deliveryFee || 0);
-  return { subtotal, tax, deliveryFee: Number(deliveryFee || 0), discount: Number(discount || 0), total };
+  const fee = toCents(deliveryFee);
+  const total = toCents(afterDiscount + tax + fee);
+  return { subtotal, tax, deliveryFee: fee, discount: toCents(discount), total };
 }
 
 export function webOrderPayloadFromCart(cart, customer, shop, options = {}) {

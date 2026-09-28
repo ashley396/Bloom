@@ -202,20 +202,16 @@ test("web checkout cannot buy a hidden product: the cart is reconciled against t
     assert.equal(res.statusCode, 400, `${hidden}: ${res.body}`);
     assert.match(JSON.parse(res.body).error, /no longer available/i);
   }
-  // Positive path: the visible product passes cart reconciliation — proves
-  // the catalog is populated, so the rejections above are real rejections,
-  // not an empty catalog rejecting everything.
-  //
-  // KNOWN PRE-EXISTING DEFECT (out of A-1 scope, reported for a follow-up
-  // batch): createWebCommerceOrder validates a payload without
-  // delivery_date/fulfillment, so validateOrderCreateBody rejects EVERY web
-  // order with "Choose a due, pickup, or delivery date." (since 2026-07-29).
-  // Until that is fixed this test can only assert the visible product got
-  // past the catalog stage; tighten to `201` + orders insert once it is.
+  // Positive path: the visible product IS purchasable — proves the catalog
+  // is populated, so the rejections above are real rejections, not an
+  // empty catalog rejecting everything. (Tightened to 201 in A-1b, which
+  // fixed the missing-delivery-date validation defect.)
   const ok = await attempt(P.visible);
-  const okBody = JSON.parse(ok.body);
-  assert.doesNotMatch(String(okBody.error || ""), /no longer available/i, ok.body);
-  assert.equal(client.calls.some((c) => c.table === "orders" && c.ops.some((op) => Array.isArray(op) && op[0] === "insert")), ok.statusCode === 201);
+  assert.equal(ok.statusCode, 201, ok.body);
+  const insert = client.calls.find((c) => c.table === "orders")?.ops.find((op) => Array.isArray(op) && op[0] === "insert")?.[1];
+  assert.equal(insert.shop_id, SHOP_A);
+  assert.equal(insert.subtotal, 45);
+  assert.equal(insert.tax_rate, 6);
 });
 
 test("the storefront reads legacy products through exactly one loader (no second, ungated query)", async () => {

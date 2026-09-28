@@ -284,3 +284,42 @@ h2 {
   color: var(--sf-accent);
 }
 
+
+/* A-1b: visible checkout result (mirrors the screen-reader live region). */
+.storefront-notice {
+  position: fixed;
+  left: 16px;
+  right: 16px;
+  bottom: 16px;
+  z-index: 1000;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  max-width: 640px;
+  margin: 0 auto;
+  padding: 14px 16px;
+  border-radius: 12px;
+  background: #1f2937;
+  color: #fff;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
+  font-size: 15px;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+.storefront-notice[hidden] { display: none; }
+.storefront-notice span { flex: 1; }
+.storefront-notice button {
+  flex: none;
+  min-width: 32px;
+  min-height: 32px;
+  margin: -6px -6px -6px 0;
+  background: transparent;
+  border: 0;
+  color: inherit;
+  font-size: 22px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0 4px;
+}
+/* Keep the drawer's last controls scrollable above a visible notice. */
+body:has(.storefront-notice:not([hidden])) .storefront-cart { padding-bottom: 140px; }

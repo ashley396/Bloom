@@ -171,7 +171,7 @@ async function maybeCreatePaymentLink(client, { shopId, order, balance, customer
   return url;
 }
 
-async function createWebCommerceOrder(client, { shop, bundle, body, event }) {
+async function createWebCommerceOrder(client, { shop, bundle, body, event, createStripe = (key) => new Stripe(key) }) {
   const rate = checkRateLimit(event, { key: "storefront_checkout", limit: 30, windowMs: 60_000 });
   if (!rate.allowed) return json(429, { error: "Too many checkout attempts. Please wait a moment." });
 
@@ -206,6 +206,29 @@ async function createWebCommerceOrder(client, { shop, bundle, body, event }) {
 
   const description = reconciled.lines.map((l) => `${l.qty} × ${l.name}`).join("; ");
   const customer = body.customer || {};
+
+  // A-1b (2026-09-28): check every pay-now precondition BEFORE the order is
+  // written. Previously the order row was inserted first, so each 503/409
+  // below left an orphan UNPAID "Website" order for a checkout the customer
+  // was told had failed.
+  const wantsCardNow = paymentMode === "pay_now" && charge >= 0.5;
+  let cardSiteBase = "";
+  if (wantsCardNow) {
+    if (!process.env.STRIPE_SECRET_KEY) {
+      return json(503, { error: "Card payments are not configured for this shop." });
+    }
+    // Without this check the Checkout Session would still be created with no
+    // transfer_data.destination, so the money would settle into Florisyn's
+    // own platform balance instead of this shop's.
+    if (!shop.stripe_connect_account_id) {
+      return json(409, {
+        error: "This shop hasn't finished setting up card payments yet. Please choose pay-at-delivery, or contact the florist directly to arrange payment.",
+        code: "stripe_connect_required"
+      });
+    }
+    cardSiteBase = (process.env.SITE_URL || process.env.URL || event.headers?.origin || "").replace(/\/$/, "");
+    if (!cardSiteBase) return json(503, { error: "SITE_URL is not configured." });
+  }
   const row = {
     shop_id: shop.id,
     order_number: orderNumber(),
@@ -230,12 +253,22 @@ async function createWebCommerceOrder(client, { shop, bundle, body, event }) {
     notes: options.delivery_instructions ? clampText(options.delivery_instructions, 1000) : null
   };
 
-  const payload = {
+  // A-1b (2026-09-28): the shared order contract is applied to the SAME
+  // server-derived values the row will store. It used to receive only
+  // name/phone/subtotal, so its required due/pickup/delivery date always
+  // failed and every web order returned 400 ("Choose a due, pickup, or
+  // delivery date.") since 2026-07-29.
+  const validation = validateOrderCreateBody({
     customer_name: row.customer_name,
     customer_phone: row.customer_phone,
-    subtotal: row.subtotal
-  };
-  const validation = validateOrderCreateBody(payload);
+    customer_email: customer.email || "",
+    subtotal: row.subtotal,
+    arrangement_description: row.arrangement_description,
+    fulfillment: row.fulfillment,
+    delivery_date: row.delivery_date,
+    delivery_address: row.delivery_address,
+    notes: row.notes
+  });
   if (!validation.valid) return json(400, { error: validation.errors[0] });
 
   const { data: order, error } = await client.from("orders").insert(row).select("*").single();
@@ -252,26 +285,9 @@ async function createWebCommerceOrder(client, { shop, bundle, body, event }) {
   let checkoutUrl = null;
   let paymentLinkUrl = null;
 
-  if (paymentMode === "pay_now" && charge >= 0.5) {
-    if (!process.env.STRIPE_SECRET_KEY) {
-      return json(503, { error: "Card payments are not configured for this shop." });
-    }
-    // Without this check, the Checkout Session below would still be
-    // created and the customer would still be able to pay — just with no
-    // transfer_data.destination, which means the money settles into
-    // Florisyn's own platform Stripe balance instead of this shop's.
-    // That's silent and effectively impossible for the florist to notice
-    // until they go looking for a payout that never comes, so it's
-    // blocked here instead of left to fail invisibly downstream.
-    if (!shop.stripe_connect_account_id) {
-      return json(409, {
-        error: "This shop hasn't finished setting up card payments yet. Please choose pay-at-delivery, or contact the florist directly to arrange payment.",
-        code: "stripe_connect_required"
-      });
-    }
-    const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
-    const siteBase = (process.env.SITE_URL || process.env.URL || event.headers?.origin || "").replace(/\/$/, "");
-    if (!siteBase) return json(503, { error: "SITE_URL is not configured." });
+  if (wantsCardNow) {
+    const stripe = createStripe(process.env.STRIPE_SECRET_KEY);
+    const siteBase = cardSiteBase;
     const idempotencyKey = newWebCheckoutIdempotencyKey();
     const sessionParams = buildPublicStripeSessionParams({
       order,
@@ -316,6 +332,7 @@ async function createWebCommerceOrder(client, { shop, bundle, body, event }) {
 export function createStorefrontPublicHandler(deps = {}) {
   const getAdmin = deps.admin || admin;
   const authenticate = deps.currentUser || currentUser;
+  const createStripe = deps.createStripe || ((key) => new Stripe(key));
 
   return async function handler(event) {
     const ready = preflight(event);
@@ -391,7 +408,10 @@ export function createStorefrontPublicHandler(deps = {}) {
         });
 
         const commerce = commerceSettingsFromBundle(bundle, shop);
-        const stripeConfigured = Boolean(process.env.STRIPE_SECRET_KEY);
+        // A-1b: card checkout is only offered when a platform Stripe key AND
+        // this shop's own connected account id exist. (An id is saved before
+        // Connect onboarding finishes — charges-enabled is not checked here.)
+        const stripeConfigured = Boolean(process.env.STRIPE_SECRET_KEY) && Boolean(shop.stripe_connect_account_id);
         return json(200, {
           preview,
           site: resolved,
@@ -429,7 +449,7 @@ export function createStorefrontPublicHandler(deps = {}) {
         const shop = await shopBySlug(client, slug);
         if (!shop) return json(404, { error: "Shop not found." });
         const bundle = await loadWebsiteBundle(client, shop.id);
-        return createWebCommerceOrder(client, { shop, bundle, body, event });
+        return createWebCommerceOrder(client, { shop, bundle, body, event, createStripe });
       }
 
       if (action === "preview_token") {

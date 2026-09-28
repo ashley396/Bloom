@@ -18,9 +18,27 @@
     return { shop, slug, productId, previewToken: new URLSearchParams(location.search).get("preview_token") };
   }
 
-  function announce(msg) {
+  let noticeTimer = null;
+  function announce(msg, { transient = false } = {}) {
     const el = document.getElementById("liveRegion");
     if (el) el.textContent = msg;
+    // A-1b: the live region is visually hidden, so a customer saw nothing
+    // after "Place order". Mirror the message into a visible notice (its text
+    // is aria-hidden so screen readers hear it once, via the live region).
+    // Transient messages ("added to cart") dismiss themselves.
+    const notice = document.getElementById("storefrontNotice");
+    const text = document.getElementById("storefrontNoticeText");
+    if (notice && text) {
+      text.textContent = msg;
+      notice.hidden = !msg;
+      clearTimeout(noticeTimer);
+      if (transient && msg) noticeTimer = setTimeout(() => { notice.hidden = true; }, 4000);
+      const close = document.getElementById("storefrontNoticeClose");
+      if (close && !close.dataset.bound) {
+        close.dataset.bound = "1";
+        close.addEventListener("click", () => { notice.hidden = true; });
+      }
+    }
   }
 
   let state = { cart: [], site: null, products: [], shopSlug: "", commerce: null };
@@ -384,7 +402,7 @@
       if (line) line.qty += 1;
       else state.cart.push({ id: p.id, name: p.name, price: Number(p.retail_price || 0), qty: 1 });
       saveCart();
-      announce(`${p.name} added to cart`);
+      announce(`${p.name} added to cart`, { transient: true });
       renderCart();
     });
     document.getElementById("checkoutForm")?.addEventListener("submit", async (e) => {

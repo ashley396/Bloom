@@ -28,7 +28,19 @@ export function mergeCommerceSettings(projectSettings = {}, shop = {}) {
 }
 
 export function deliveryDateValid(dateStr, leadDays = 0, now = new Date()) {
-  if (!dateStr) return { valid: false, error: "Choose a delivery or pickup date." };
+  if (!dateStr || !String(dateStr).trim()) return { valid: false, error: "Choose a delivery or pickup date." };
+  // A-1b (2026-09-28): only a real YYYY-MM-DD calendar date is accepted.
+  // `new Date("2026-02-30T12:00:00")` silently rolls over to March 2, which
+  // passed this check and then failed at the database's date column (500).
+  const text = String(dateStr).trim();
+  const parts = /^(\d{4})-(\d{2})-(\d{2})$/.exec(text);
+  if (!parts) return { valid: false, error: "Enter the date as YYYY-MM-DD." };
+  const [year, month, day] = [Number(parts[1]), Number(parts[2]), Number(parts[3])];
+  const calendar = new Date(Date.UTC(year, month - 1, day));
+  if (calendar.getUTCFullYear() !== year || calendar.getUTCMonth() !== month - 1 || calendar.getUTCDate() !== day) {
+    return { valid: false, error: "Invalid date." };
+  }
+  dateStr = text;
   const d = new Date(`${dateStr}T12:00:00`);
   if (Number.isNaN(d.getTime())) return { valid: false, error: "Invalid date." };
   const today = new Date(now);
@@ -93,7 +105,7 @@ export function computeDepositAmount(total, depositPercent = 0) {
   return Math.max(0.5, Math.round(deposit * 100) / 100);
 }
 
-export function validateStorefrontCheckout(body = {}, settings = {}) {
+export function validateStorefrontCheckout(body = {}, settings = {}, now = new Date()) {
   const errors = [];
   const name = clampText(body.customer?.name || body.customer_name, 120);
   if (!name) errors.push("Your name is required.");
@@ -120,11 +132,9 @@ export function validateStorefrontCheckout(body = {}, settings = {}) {
     errors.push("Pickup is not available for this shop.");
   }
 
-  const dateCheck = deliveryDateValid(
-    body.options?.delivery_date,
-    settings.delivery_lead_days,
-    body._now ? new Date(body._now) : new Date()
-  );
+  // A-1b: "now" is never taken from the (untrusted, public) request body —
+  // a body `_now` used to let any caller bypass the past-date and lead-days rules.
+  const dateCheck = deliveryDateValid(body.options?.delivery_date, settings.delivery_lead_days, now);
   if (!dateCheck.valid) errors.push(dateCheck.error);
 
   const mode = String(body.payment_mode || "pay_later").toLowerCase();
