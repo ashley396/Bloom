@@ -484,7 +484,7 @@ test("publicProfile omits employee and payment fields", () => {
 
 test("package pins sharp for real decode/re-encode", () => {
   const pkg = JSON.parse(fs.readFileSync(path.join(process.cwd(), "package.json"), "utf8"));
-  assert.equal(pkg.dependencies.sharp, "0.35.3");
+  assert.equal(pkg.dependencies.sharp, "0.35.5"); // exact pin; bumped 2026-09-28 for GHSA-rgj7-g3m4-5g8c
   assert.equal(pkg.dependencies["image-size"], undefined);
   const shared = fs.readFileSync(path.join(process.cwd(), "netlify/functions/_shared/florist-community.js"), "utf8");
   assert.match(shared, /import sharp from "sharp"/);
