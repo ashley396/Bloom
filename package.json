@@ -7,7 +7,7 @@
     "@imgly/background-removal": "^1.5.8",
     "@supabase/supabase-js": "^2.49.8",
     "onnxruntime-web": "^1.21.0-dev.20250114-228dd16893",
-    "sharp": "0.35.3",
+    "sharp": "^0.35.5",
     "stripe": "^17.7.0"
   },
   "engines": {
