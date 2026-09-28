@@ -1,5 +1,5 @@
 import { json, bodyOf, preflight, methodNotAllowed } from "./_shared/http.js";
-import { currentUser, fail } from "./_shared/supabase.js";
+import { currentUser, fail, requireDestructiveRole } from "./_shared/supabase.js";
 import { writeShopAudit } from "./_shared/production.js";
 import { validateCustomerBody } from "./_shared/validation.js";
 import { findDuplicateCustomer } from "./_shared/customer-dedup.js";
@@ -36,11 +36,16 @@ function applyContactPreferences(payload, body, { isCreate, previous = null } = 
   return payload;
 }
 
-export async function handler(event) {
+export const handler = (event) => handleCustomers(event);
+
+/** Test seam — production uses the bound real session helper via `handler`. */
+export async function handleCustomers(event, dependencies = {}) {
+  const authenticate = dependencies.currentUser || currentUser;
   const ready = preflight(event);
   if (ready) return ready;
   try {
-    const { client, shopId, user } = await currentUser(event);
+    const ctx = await authenticate(event);
+    const { client, shopId, user } = ctx;
     if (event.httpMethod === "GET") {
       const { data, error } = await client
         .from("customers")
@@ -142,6 +147,7 @@ export async function handler(event) {
       });
     }
     if (event.httpMethod === "DELETE") {
+      requireDestructiveRole(ctx);
       if (!body.id) return json(400, { error: "Customer id is required." });
       const { data: existing } = await client
         .from("customers")

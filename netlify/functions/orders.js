@@ -1,5 +1,5 @@
 import { json, bodyOf, preflight, methodNotAllowed } from "./_shared/http.js";
-import { currentUser, fail } from "./_shared/supabase.js";
+import { currentUser, fail, requireDestructiveRole } from "./_shared/supabase.js";
 import { writeShopAudit } from "./_shared/production.js";
 import { validateOrderCreateBody, clampText, validateOrderPatchBody } from "./_shared/validation.js";
 import { normalizeOrderStatus, recordOrderStatusChange } from "./_shared/order-status.js";
@@ -59,6 +59,56 @@ function paymentFieldError(body) {
   return `Payment fields (${fields.join(", ")}) can only be changed by recording a payment or refund in the payment ledger.`;
 }
 
+/**
+ * Launch-readiness P1 #7 (2026-09-28). Every money field an order is created
+ * from must be a finite amount of 0 or more — a missing field is 0, anything
+ * else (NaN, negative, text, Infinity) is rejected before any database call.
+ */
+export const ORDER_MONEY_FIELDS = Object.freeze([
+  ["subtotal", "Flowers / product amount"],
+  ["labor_charge", "Labor"],
+  ["addon_total", "Add-ons"],
+  ["discount", "Discount"],
+  ["delivery_fee", "Delivery fee"]
+]);
+
+export function parseOrderMoneyFields(body = {}) {
+  const parsed = {};
+  for (const [field, label] of ORDER_MONEY_FIELDS) {
+    const raw = body[field];
+    const value = raw === undefined || raw === null || raw === "" ? 0 : Number(raw);
+    if (!Number.isFinite(value) || value < 0) {
+      return { error: `${label} must be a number of 0 or more.` };
+    }
+    parsed[field] = value;
+  }
+  return {
+    flowers: parsed.subtotal,
+    labor: parsed.labor_charge,
+    addons: parsed.addon_total,
+    discount: parsed.discount,
+    deliveryFee: parsed.delivery_fee
+  };
+}
+
+/**
+ * P1 #7: the authoritative tax rate for a new order is the authenticated
+ * shop's own `shops.tax_rate` (Settings → Shop), read server-side through
+ * the caller's RLS-scoped client. A `tax_rate` in the request body is
+ * ignored on purpose: the POS used to send whatever it last loaded (a
+ * hard-coded 6% whenever settings failed to load) and any member could
+ * have sent 0. There is no per-order tax-exemption workflow in Florisyn
+ * today; if one is added it must be an explicit, role-gated field, not
+ * this one. A shop with no rate configured is a zero-tax shop.
+ */
+export async function resolveShopTaxRate(client, shopId) {
+  const { data, error } = await client.from("shops").select("tax_rate").eq("id", shopId).maybeSingle();
+  if (error) throw error;
+  const rate = Number(data?.tax_rate);
+  if (!Number.isFinite(rate) || rate < 0) return 0;
+  return Math.min(rate, 100);
+}
+
 export async function handleOrders(event, dependencies = {}) {
   const authenticate = dependencies.currentUser || currentUser;
   const audit = dependencies.writeShopAudit || writeShopAudit;
@@ -67,7 +117,8 @@ export async function handleOrders(event, dependencies = {}) {
   if (ready) return ready;
 
   try {
-    const { client, shopId, user } = await authenticate(event);
+    const ctx = await authenticate(event);
+    const { client, shopId, user } = ctx;
 
     if (event.httpMethod === "GET") {
       const qs = event.queryStringParameters || {};
@@ -110,12 +161,12 @@ export async function handleOrders(event, dependencies = {}) {
       const validation = validateOrderCreateBody(body);
       if (!validation.valid) return json(400, { error: validation.errors[0] });
 
-      const flowers = Number(body.subtotal || 0);
-      const labor = Number(body.labor_charge || 0);
-      const addons = Number(body.addon_total || 0);
-      const discount = Number(body.discount || 0);
-      const taxRate = Number(body.tax_rate || 0);
-      const deliveryFee = Number(body.delivery_fee || 0);
+      const money = parseOrderMoneyFields(body);
+      if (money.error) return json(400, { error: money.error });
+      const { flowers, labor, addons, discount, deliveryFee } = money;
+      // P1 #7: the tax rate is the authenticated shop's own configured rate.
+      // A client-supplied tax_rate is never used (see resolveShopTaxRate).
+      const taxRate = await resolveShopTaxRate(client, shopId);
 
       const payload = {
         customer_name: validation.sanitized.customer_name || clampText(body.customer_name, 120),
@@ -149,9 +200,9 @@ export async function handleOrders(event, dependencies = {}) {
         preferred_flowers: body.preferred_flowers || null,
         flower_restrictions: body.flower_restrictions || null,
         addons: body.addons || null,
-        labor_charge: Number(body.labor_charge || 0),
-        addon_total: Number(body.addon_total || 0),
-        discount: Number(body.discount || 0),
+        labor_charge: labor,
+        addon_total: addons,
+        discount,
         estimated_cost: Number(body.estimated_cost || 0),
         product_id: body.product_id || null,
         metadata: sanitizeOrderMetadata(body.metadata),
@@ -200,18 +251,26 @@ export async function handleOrders(event, dependencies = {}) {
       if ("status" in payload && payload.status) payload.status = normalizeOrderStatus(payload.status);
       const pricingFields = ["subtotal","tax","delivery_fee","tax_rate","labor_charge","addon_total","discount"];
       if (pricingFields.some((field) => Object.prototype.hasOwnProperty.call(body, field))) {
+        // P1 #7: every money field in a pricing edit must be a finite
+        // amount >= 0 (a negative labor/discount/fee could persist otherwise).
+        const patchMoney = parseOrderMoneyFields(
+          Object.fromEntries(ORDER_MONEY_FIELDS.filter(([field]) => field in body).map(([field]) => [field, body[field]]))
+        );
+        if (patchMoney.error) return json(400, { error: patchMoney.error });
         const priorLabor = Number(priorOrder.labor_charge || 0);
         const priorAddons = Number(priorOrder.addon_total || 0);
         const priorDiscount = Number(priorOrder.discount || 0);
         const priorProductAmount = Math.max(0, Number(priorOrder.subtotal || 0) - priorLabor - priorAddons + priorDiscount);
-        const productAmount = "subtotal" in body ? Number(body.subtotal || 0) : priorProductAmount;
-        const labor = "labor_charge" in body ? Number(body.labor_charge || 0) : priorLabor;
-        const addons = "addon_total" in body ? Number(body.addon_total || 0) : priorAddons;
-        const discount = "discount" in body ? Number(body.discount || 0) : priorDiscount;
+        const productAmount = "subtotal" in body ? patchMoney.flowers : priorProductAmount;
+        const labor = "labor_charge" in body ? patchMoney.labor : priorLabor;
+        const addons = "addon_total" in body ? patchMoney.addons : priorAddons;
+        const discount = "discount" in body ? patchMoney.discount : priorDiscount;
         const subtotal = Math.max(0, roundMoney(productAmount + labor + addons - discount));
-        const taxRate = "tax_rate" in body ? Number(body.tax_rate || 0) : Number(priorOrder.tax_rate || 0);
+        // P1 #7: an order keeps the rate it was created with (the shop's
+        // configured rate at the time of sale); the client can't change it.
+        const taxRate = Number(priorOrder.tax_rate || 0);
         const tax = Math.max(0, roundMoney(subtotal * (taxRate / 100)));
-        const deliveryFee = "delivery_fee" in body ? Number(body.delivery_fee || 0) : Number(priorOrder.delivery_fee || 0);
+        const deliveryFee = "delivery_fee" in body ? patchMoney.deliveryFee : Number(priorOrder.delivery_fee || 0);
         const total = Math.max(0, roundMoney(subtotal + tax + deliveryFee));
         if (total + 0.005 < Number(priorOrder.amount_paid || 0)) {
           return json(400, { error: "The revised order total cannot be less than payments already recorded. Record a refund or payment adjustment first." });
@@ -285,6 +344,7 @@ export async function handleOrders(event, dependencies = {}) {
     }
 
     if (event.httpMethod === "DELETE") {
+      requireDestructiveRole(ctx);
       const body = bodyOf(event);
       if (!body.id) return json(400, { error: "Missing order id" });
       const { data: order, error: orderError } = await client

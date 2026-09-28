@@ -1,5 +1,5 @@
 import { json,bodyOf,preflight,methodNotAllowed } from "./_shared/http.js";
-import { currentUser,fail } from "./_shared/supabase.js";
+import { currentUser,fail,requireDestructiveRole } from "./_shared/supabase.js";
 import { shopDateStr } from "./_shared/shop-time.js";
 
 function parseDataUrl(value){
@@ -15,10 +15,15 @@ async function uploadReceipt(client,shopId,value){
   const {error}=await client.storage.from("expense-receipts").upload(path,file.buffer,{contentType:file.mime,upsert:false});
   if(error)throw error; return path;
 }
-export async function handler(event){
+export const handler=(event)=>handleExpenses(event);
+
+/** Test seam — production uses the bound real session helper via `handler`. */
+export async function handleExpenses(event,dependencies={}){
+  const authenticate=dependencies.currentUser||currentUser;
   const ready=preflight(event); if(ready)return ready;
   try{
-    const {client,shopId}=await currentUser(event);
+    const ctx=await authenticate(event);
+    const {client,shopId}=ctx;
     if(event.httpMethod==="GET"){
       const {data,error}=await client.from("expenses").select("*").eq("shop_id",shopId).order("expense_date",{ascending:false});
       if(error)throw error;
@@ -48,6 +53,7 @@ export async function handler(event){
       const {data,error}=await client.from("expenses").update(payload).eq("id",body.id).eq("shop_id",shopId).select().single();if(error)throw error;return json(200,{item:data});
     }
     if(event.httpMethod==="DELETE"){
+      requireDestructiveRole(ctx);
       const body=bodyOf(event);if(!body.id)throw new Error("Missing expense id");
       const {data:existing}=await client.from("expenses").select("receipt_path").eq("id",body.id).eq("shop_id",shopId).maybeSingle();
       const {error}=await client.from("expenses").delete().eq("id",body.id).eq("shop_id",shopId);if(error)throw error;

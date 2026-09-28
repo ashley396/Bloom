@@ -67,7 +67,8 @@ function fakeClient({ order, paymentCount }) {
 test("DELETE is blocked with a clear, actionable error once an order has payment history", async () => {
   const client = fakeClient({ order: { id: "order-a", order_number: "F-1001" }, paymentCount: 1 });
   const response = await handleOrders(event("DELETE", { id: "order-a" }), {
-    currentUser: async () => ({ client, shopId: SHOP_ID, user: USER }),
+    // P1 #6: DELETE is owner/manager only — this guard test runs as the owner.
+    currentUser: async () => ({ client, shopId: SHOP_ID, user: USER, role: "owner" }),
     writeShopAudit: async () => {},
   });
   assert.equal(response.statusCode, 400);
@@ -77,7 +78,8 @@ test("DELETE is blocked with a clear, actionable error once an order has payment
 test("DELETE succeeds for an order with no payment history", async () => {
   const client = fakeClient({ order: { id: "order-b", order_number: "F-1002" }, paymentCount: 0 });
   const response = await handleOrders(event("DELETE", { id: "order-b" }), {
-    currentUser: async () => ({ client, shopId: SHOP_ID, user: USER }),
+    // P1 #6: DELETE is owner/manager only — this guard test runs as the owner.
+    currentUser: async () => ({ client, shopId: SHOP_ID, user: USER, role: "owner" }),
     writeShopAudit: async () => {},
   });
   assert.equal(response.statusCode, 200);

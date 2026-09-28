@@ -169,7 +169,9 @@ async function createWebCommerceOrder(client, { shop, bundle, body, event }) {
     ...(body.options || {}),
     fulfillment: checkoutValid.sanitized.fulfillment,
     delivery_date: checkoutValid.sanitized.delivery_date,
-    tax_rate: body.options?.tax_rate ?? shop.tax_rate
+    // P1 #7 (2026-09-28): a web buyer never chooses their own tax rate —
+    // the shop's configured rate is the only rate a storefront order gets.
+    tax_rate: shop.tax_rate
   };
   const totals = buildWebOrderTotals(reconciled.lines, shop, options, settings);
   const paymentMode = checkoutValid.sanitized.payment_mode;

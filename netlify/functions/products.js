@@ -1,14 +1,19 @@
 import { json,bodyOf,preflight,methodNotAllowed } from "./_shared/http.js";
-import { currentUser,fail } from "./_shared/supabase.js";
+import { currentUser,fail,requireDestructiveRole } from "./_shared/supabase.js";
 
 const TABLE = "products";
 const FIELDS = ["sku", "name", "category", "description", "image_url", "gallery", "price", "compare_at_price", "labor_cost", "taxable", "active", "featured", "available_online", "seo_title", "seo_description", "tags"];
 const ORDER = "created_at";
 
-export async function handler(event){
+export const handler=(event)=>handleProducts(event);
+
+/** Test seam — production uses the bound real session helper via `handler`. */
+export async function handleProducts(event,dependencies={}){
+  const authenticate=dependencies.currentUser||currentUser;
   const ready=preflight(event); if(ready)return ready;
   try{
-    const {client,shopId}=await currentUser(event);
+    const ctx=await authenticate(event);
+    const {client,shopId}=ctx;
     if(event.httpMethod==="GET"){
       let q=client.from(TABLE).select("*").eq("shop_id",shopId);
       if(TABLE==="products")q=q.is("deleted_at",null);
@@ -28,6 +33,7 @@ export async function handler(event){
       if(error)throw error; return json(200,{item:data});
     }
     if(event.httpMethod==="DELETE"){
+      requireDestructiveRole(ctx);
       const body=bodyOf(event); if(!body.id)throw new Error("Missing id");
       const query=TABLE==="products"
         ? client.from(TABLE).update({deleted_at:new Date().toISOString()}).eq("id",body.id).eq("shop_id",shopId)

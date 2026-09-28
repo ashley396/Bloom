@@ -272,7 +272,7 @@ export function storefrontCartTotals(lines, taxRate = 0, deliveryFee = 0, discou
 export function webOrderPayloadFromCart(cart, customer, shop, options = {}) {
   const { subtotal, tax, deliveryFee, total } = storefrontCartTotals(
     cart.lines,
-    options.tax_rate ?? shop.tax_rate,
+    shop.tax_rate,
     options.delivery_fee ?? 0,
     options.discount ?? 0
   );
@@ -290,7 +290,7 @@ export function webOrderPayloadFromCart(cart, customer, shop, options = {}) {
     card_message: options.card_message || null,
     notes: options.notes || null,
     subtotal,
-    tax_rate: Number(options.tax_rate ?? shop.tax_rate ?? 0),
+    tax_rate: Number(shop.tax_rate ?? 0),
     tax,
     delivery_fee: deliveryFee,
     discount: Number(options.discount || 0),

@@ -1,5 +1,5 @@
 import { json, bodyOf, preflight, methodNotAllowed } from "./_shared/http.js";
-import { currentUser, fail } from "./_shared/supabase.js";
+import { currentUser, fail, requireDestructiveRole } from "./_shared/supabase.js";
 import { writeShopAudit } from "./_shared/production.js";
 import { validateInventoryItemBody } from "./_shared/validation.js";
 import { validateInventoryFreshnessFields } from "./_shared/inventory-freshness.js";
@@ -55,11 +55,16 @@ function payloadOf(body, shopId, todayStr) {
   };
 }
 
-export async function handler(event) {
+export const handler = (event) => handleInventory(event);
+
+/** Test seam — production uses the bound real session helper via `handler`. */
+export async function handleInventory(event, dependencies = {}) {
+  const authenticate = dependencies.currentUser || currentUser;
   const ready = preflight(event);
   if (ready) return ready;
   try {
-    const { client, shopId, user } = await currentUser(event);
+    const ctx = await authenticate(event);
+    const { client, shopId, user } = ctx;
     if (event.httpMethod === "GET") {
       const { data, error } = await client
         .from("inventory")
@@ -139,6 +144,7 @@ export async function handler(event) {
       return json(200, { item: data });
     }
     if (event.httpMethod === "DELETE") {
+      requireDestructiveRole(ctx);
       const body = bodyOf(event);
       if (!body.id) return json(400, { error: "Item is required" });
       const { data: existing } = await client

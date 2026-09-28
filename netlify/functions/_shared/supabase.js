@@ -111,11 +111,13 @@ async function activeMembership(client,userId,preferredShopId){const base=()=>cl
  * Florist session: JWT + member-scoped Supabase client (RLS enforced).
  * Phase 2A A2 — does not use service role; Tier-3 routes call admin() explicitly.
  */
-export async function currentUser(event) {
-  const auth = event.headers.authorization || event.headers.Authorization || "";
+export async function currentUser(event, dependencies = {}) {
+  // Test seam only: production callers never pass dependencies.
+  const makeClient = dependencies.userClient || userClient;
+  const auth = event.headers?.authorization || event.headers?.Authorization || "";
   if (!auth.startsWith("Bearer ")) denied("Please sign in", 401);
   const token = auth.slice(7);
-  const client = userClient(token);
+  const client = makeClient(token);
   const { data, error } = await client.auth.getUser(token);
   if (error || !data.user) denied("Your session expired. Please sign in again.", 401);
   const { data: profile, error: profileError } = await client
@@ -143,4 +145,15 @@ export async function currentUser(event) {
   };
 }
 export function requireRoles(context,roles){if(!roles.includes(context.role))denied("You do not have permission to perform this action.")}
+/**
+ * Launch-readiness P1 #6 (2026-09-28): destructive deletes of a shop's
+ * records (orders, customers, inventory, products, deliveries, expenses)
+ * are limited to the shop's privileged roles. Every other active member
+ * (designer, cashier, driver, marketer, accountant, staff) keeps every
+ * non-destructive workflow; only the DELETE branches call this.
+ */
+export const DESTRUCTIVE_ROLES = Object.freeze(["owner", "manager"]);
+export function requireDestructiveRole(context) {
+  requireRoles(context, DESTRUCTIVE_ROLES);
+}
 export function fail(error){structuredLog("error","function_error",{message:error.message,status:error.statusCode||500,code:error.code||undefined});console.error("Florisyn function error:",error);const payload={error:safePublicError(error)};if(error?.code)payload.code=error.code;return{statusCode:error.statusCode||500,headers:{"Content-Type":"application/json","Cache-Control":"no-store","X-Content-Type-Options":"nosniff","X-Frame-Options":"DENY","Referrer-Policy":"strict-origin-when-cross-origin"},body:JSON.stringify(payload)}}

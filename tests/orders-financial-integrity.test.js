@@ -13,6 +13,15 @@ function bodyOfResponse(response) {
   return JSON.parse(response.body);
 }
 
+// P1 #7: POST now reads the shop's own tax rate server-side before the RPC.
+function shopsTable(taxRate) {
+  return {
+    select() { return this; },
+    eq() { return this; },
+    async maybeSingle() { return { data: { tax_rate: taxRate }, error: null }; },
+  };
+}
+
 function rejectedWriteDependencies() {
   let databaseCalls = 0;
   return {
@@ -51,6 +60,10 @@ test("POST initializes payment state from the server, not the client", async () 
   let rpcName;
   let rpcArgs;
   const client = {
+    from(table) {
+      if (table === "shops") return shopsTable(6);
+      throw new Error(`Unexpected table: ${table}`);
+    },
     async rpc(name, args) {
       rpcName = name;
       rpcArgs = args;
@@ -178,6 +191,10 @@ test("sanitizeOrderMetadata keeps a real plain object and rejects arrays, non-ob
 test("POST forwards a wire order's metadata (service, their reference number, commission) to create_order_atomic", async () => {
   let rpcArgs;
   const client = {
+    from(table) {
+      if (table === "shops") return shopsTable(6);
+      throw new Error(`Unexpected table: ${table}`);
+    },
     async rpc(name, args) {
       rpcArgs = args;
       return {
@@ -209,6 +226,10 @@ test("POST forwards a wire order's metadata (service, their reference number, co
 test("POST never lets an oversized or malformed metadata blob reach create_order_atomic", async () => {
   let rpcArgs;
   const client = {
+    from(table) {
+      if (table === "shops") return shopsTable(6);
+      throw new Error(`Unexpected table: ${table}`);
+    },
     async rpc(name, args) {
       rpcArgs = args;
       return { data: { item: { id: "order-wire-2", ...args.p_order } }, error: null };

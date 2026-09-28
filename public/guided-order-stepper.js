@@ -75,7 +75,7 @@
         <label>Instructions<textarea name="delivery_instructions">${esc(state.delivery_instructions || "")}</textarea></label>`;
     } else if (step === "pricing") {
       fields.innerHTML = `<label>Subtotal<input type="number" step="0.01" name="subtotal" value="${esc(state.subtotal || "0")}"></label>
-        <label>Tax rate %<input type="number" step="0.001" name="tax_rate" value="${esc(state.tax_rate ?? window.shopSettings?.tax_rate ?? 6)}"></label>
+        <label>Tax rate % (from Settings)<input type="number" step="0.001" name="tax_rate" value="${esc(state.tax_rate ?? window.shopSettings?.tax_rate ?? 0)}" readonly></label>
         <label>Delivery fee<input type="number" step="0.01" name="delivery_fee" value="${esc(state.delivery_fee || "0")}"></label>
         <label>Discount<input type="number" step="0.01" name="discount" value="${esc(state.discount || "0")}"></label>`;
     } else if (step === "payment") {

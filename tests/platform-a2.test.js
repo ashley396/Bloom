@@ -35,6 +35,8 @@ test("A2 migration file exists for staff_time_entries RLS", () => {
 
 test("currentUser source uses JWT userClient (A2)", () => {
   const src = fs.readFileSync(path.join(process.cwd(), "netlify/functions/_shared/supabase.js"), "utf8");
-  assert.match(src, /const client = userClient\(token\)/);
+  // P1 #6 (2026-09-28) added a test-only `dependencies.userClient` seam; the
+  // production default is still the JWT userClient, never an admin client.
+  assert.match(src, /const makeClient = dependencies\.userClient \|\| userClient;[\s\S]{0,400}const client = makeClient\(token\)/);
   assert.doesNotMatch(src, /adminClient\s*\?\?\s*userClient/);
 });

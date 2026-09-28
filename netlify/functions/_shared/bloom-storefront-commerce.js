@@ -151,7 +151,12 @@ export function validateStorefrontCheckout(body = {}, settings = {}) {
 export function buildWebOrderTotals(lines, shop, options = {}, settings = {}) {
   const fulfillment = options.fulfillment === "DELIVERY" ? "DELIVERY" : "PICKUP";
   const deliveryFee = resolveDeliveryFee(fulfillment, shop, settings);
-  const totals = storefrontCartTotals(lines, options.tax_rate ?? shop.tax_rate, deliveryFee, options.discount ?? 0);
+  // P1 #7 (2026-09-28): the tax rate is always the shop's own — never a
+  // caller-supplied options.tax_rate (public checkout bodies are untrusted).
+  // A web buyer never chooses a discount either: no storefront client sends one,
+  // so any options.discount in the body is an attacker knob (it also bypassed
+  // the minimum-order check). Promotions must be applied server-side.
+  const totals = storefrontCartTotals(lines, shop.tax_rate, deliveryFee, 0);
   return { ...totals, fulfillment, deliveryFee };
 }
 

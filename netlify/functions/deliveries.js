@@ -1,5 +1,5 @@
 import { json, bodyOf, preflight, methodNotAllowed } from "./_shared/http.js";
-import { currentUser, fail } from "./_shared/supabase.js";
+import { currentUser, fail, requireDestructiveRole } from "./_shared/supabase.js";
 import { writeShopAudit } from "./_shared/production.js";
 import { requireRowShopId } from "./_shared/shop-scope.js";
 import { optimizeRouteStops } from "../../lib/delivery/route-board.js";
@@ -143,11 +143,16 @@ async function captureDeliveryProof(client, shopId, user, body) {
   });
 }
 
-export async function handler(event) {
+export const handler = (event) => handleDeliveries(event);
+
+/** Test seam — production uses the bound real session helper via `handler`. */
+export async function handleDeliveries(event, dependencies = {}) {
+  const authenticate = dependencies.currentUser || currentUser;
   const ready = preflight(event);
   if (ready) return ready;
   try {
-    const { client, shopId, user } = await currentUser(event);
+    const ctx = await authenticate(event);
+    const { client, shopId, user } = ctx;
     const qs = event.queryStringParameters || {};
 
     if (event.httpMethod === "GET") {
@@ -226,6 +231,7 @@ export async function handler(event) {
     }
 
     if (event.httpMethod === "DELETE") {
+      requireDestructiveRole(ctx);
       if (!body.id) throw Object.assign(new Error("Missing id"), { statusCode: 400 });
       const existing = await loadDelivery(client, body.id, shopId);
       requireRowShopId(existing, shopId, "Delivery");
