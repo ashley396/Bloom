@@ -66,12 +66,38 @@ async function loadWebsiteBundle(client, shopId) {
   }
 }
 
+/**
+ * Phase A-1 (2026-09-28): the ONLY product reader every public storefront
+ * surface goes through (site JSON, sitemap, and web checkout's cart
+ * reconciliation all call this, then filterPublicProducts()).
+ *
+ * A legacy `products` row is public only when ALL of:
+ *   - available_online = true   (the column is NOT NULL DEFAULT false — the
+ *                                 old code tested a non-existent `show_online`
+ *                                 column, so every product read as public)
+ *   - active <> false           (inactive → "draft" → hidden by
+ *                                 productVisibleOnPublicSite)
+ *   - deleted_at IS NULL        (soft-deleted rows were never excluded)
+ *   - shop_id = this shop       (query-scoped; never trust the caller)
+ */
+export function legacyProductIsPublic(p) {
+  return Boolean(p) && p.available_online === true && p.active !== false && p.deleted_at == null;
+}
+
 async function loadPublicProducts(client, shopId) {
   const legacy = [];
   try {
-    const { data, error } = await client.from("products").select("*").eq("shop_id", shopId);
+    const { data, error } = await client
+      .from("products")
+      .select("*")
+      .eq("shop_id", shopId)
+      .is("deleted_at", null);
     if (error) throw error;
     (data || []).forEach((p) => {
+      // Defensive re-check in code: the query already excludes deleted rows
+      // and scopes the shop, but the visibility contract is enforced here
+      // too so a looser query can never widen what the storefront exposes.
+      if (String(p.shop_id) !== String(shopId) || p.deleted_at != null) return;
       legacy.push({
         id: p.id,
         name: p.name,
@@ -80,7 +106,7 @@ async function loadPublicProducts(client, shopId) {
         image_url: p.image_url,
         categories: p.category ? [p.category] : [],
         publish_status: p.active === false ? "draft" : "published",
-        sync: { available_online: p.show_online !== false, show_price_online: true }
+        sync: { available_online: legacyProductIsPublic(p), show_price_online: true }
       });
     });
   } catch (e) {
@@ -286,138 +312,146 @@ async function createWebCommerceOrder(client, { shop, bundle, body, event }) {
   return json(201, { order, handoff, commerce: { payment_mode: paymentMode, charge_preview: charge } });
 }
 
-export async function handler(event) {
-  const ready = preflight(event);
-  if (ready) return ready;
-  if (!["GET", "POST"].includes(event.httpMethod)) return methodNotAllowed();
+/** Test seam — production uses the bound real service-role client and session helper via `handler`. */
+export function createStorefrontPublicHandler(deps = {}) {
+  const getAdmin = deps.admin || admin;
+  const authenticate = deps.currentUser || currentUser;
 
-  const qs = event.queryStringParameters || {};
-  const body = event.httpMethod === "POST" ? bodyOf(event) : {};
-  const action = String(qs.action || body.action || "site").toLowerCase();
+  return async function handler(event) {
+    const ready = preflight(event);
+    if (ready) return ready;
+    if (!["GET", "POST"].includes(event.httpMethod)) return methodNotAllowed();
 
-  try {
-    if (action === "robots" && event.httpMethod === "GET") {
-      const slug = qs.shop;
-      const client = admin();
-      const shop = slug ? await shopBySlug(client, slug) : null;
-      const bundle = shop ? await loadWebsiteBundle(client, shop.id) : null;
-      const allow = bundle?.project?.status === "published";
-      const baseUrl = shop ? resolvePublishedSiteBaseUrl(shop) : null;
-      const sitemapUrl = baseUrl ? `${baseUrl.replace(/\/$/, "")}/sitemap.xml` : null;
-      return {
-        statusCode: 200,
-        headers: { "Content-Type": "text/plain; charset=utf-8" },
-        body: publishedRobotsTxt({ allowIndex: allow, sitemapUrl: allow ? sitemapUrl : null })
-      };
-    }
+    const qs = event.queryStringParameters || {};
+    const body = event.httpMethod === "POST" ? bodyOf(event) : {};
+    const action = String(qs.action || body.action || "site").toLowerCase();
 
-    if (action === "sitemap" && event.httpMethod === "GET") {
-      const slug = qs.shop;
-      if (!slug) return json(400, { error: "shop slug required" });
-      const client = admin();
-      const shop = await shopBySlug(client, slug);
-      if (!shop) return json(404, { error: "Shop not found." });
-      const bundle = await loadWebsiteBundle(client, shop.id);
-      if (bundle?.project?.status !== "published") return json(403, { error: "Sitemap available when published." });
-      const baseUrl = resolvePublishedSiteBaseUrl(shop);
-      const pages = bundle?.pages?.length ? bundle.pages : buildSiteFromShopProfile(shop).pages;
-      const products = filterPublicProducts(await loadPublicProducts(client, shop.id));
-      const xml = buildPublishedSitemapXml(baseUrl, pages, products);
-      return {
-        statusCode: 200,
-        headers: { "Content-Type": "application/xml; charset=utf-8" },
-        body: xml
-      };
-    }
-
-    if (event.httpMethod === "GET") {
-      const slug = qs.shop;
-      if (!slug) return json(400, { error: "shop query parameter required." });
-      const client = admin();
-      const shop = await shopBySlug(client, slug);
-      if (!shop) return json(404, { error: "Shop not found." });
-
-      let preview = false;
-      const token = qs.preview_token;
-      if (token) {
-        const v = verifyPreviewToken(token, shop.id);
-        if (!v.valid) return json(403, { error: v.error });
-        preview = true;
+    try {
+      if (action === "robots" && event.httpMethod === "GET") {
+        const slug = qs.shop;
+        const client = getAdmin();
+        const shop = slug ? await shopBySlug(client, slug) : null;
+        const bundle = shop ? await loadWebsiteBundle(client, shop.id) : null;
+        const allow = bundle?.project?.status === "published";
+        const baseUrl = shop ? resolvePublishedSiteBaseUrl(shop) : null;
+        const sitemapUrl = baseUrl ? `${baseUrl.replace(/\/$/, "")}/sitemap.xml` : null;
+        return {
+          statusCode: 200,
+          headers: { "Content-Type": "text/plain; charset=utf-8" },
+          body: publishedRobotsTxt({ allowIndex: allow, sitemapUrl: allow ? sitemapUrl : null })
+        };
       }
 
-      let bundle = await loadWebsiteBundle(client, shop.id);
-      if (!bundle) {
-        const site = fallbackSiteFromProfile(shop);
-        bundle = { project: site.project, pages: site.pages };
+      if (action === "sitemap" && event.httpMethod === "GET") {
+        const slug = qs.shop;
+        if (!slug) return json(400, { error: "shop slug required" });
+        const client = getAdmin();
+        const shop = await shopBySlug(client, slug);
+        if (!shop) return json(404, { error: "Shop not found." });
+        const bundle = await loadWebsiteBundle(client, shop.id);
+        if (bundle?.project?.status !== "published") return json(403, { error: "Sitemap available when published." });
+        const baseUrl = resolvePublishedSiteBaseUrl(shop);
+        const pages = bundle?.pages?.length ? bundle.pages : buildSiteFromShopProfile(shop).pages;
+        const products = filterPublicProducts(await loadPublicProducts(client, shop.id));
+        const xml = buildPublishedSitemapXml(baseUrl, pages, products);
+        return {
+          statusCode: 200,
+          headers: { "Content-Type": "application/xml; charset=utf-8" },
+          body: xml
+        };
       }
 
-      const resolved = resolvePublishedSite(bundle.project, bundle.pages, shop, { preview });
-      if (!resolved.allowed) return json(404, { error: resolved.error });
+      if (event.httpMethod === "GET") {
+        const slug = qs.shop;
+        if (!slug) return json(400, { error: "shop query parameter required." });
+        const client = getAdmin();
+        const shop = await shopBySlug(client, slug);
+        if (!shop) return json(404, { error: "Shop not found." });
 
-      const products = filterPublicProducts(await loadPublicProducts(client, shop.id), {
-        collectionSlug: qs.collection || null,
-        query: qs.q || ""
-      });
-
-      const commerce = commerceSettingsFromBundle(bundle, shop);
-      const stripeConfigured = Boolean(process.env.STRIPE_SECRET_KEY);
-      return json(200, {
-        preview,
-        site: resolved,
-        products,
-        commerce: {
-          ...commerce,
-          stripe_available: stripeConfigured && commerce.stripe_checkout_enabled,
-          payment_modes: [
-            ...(commerce.stripe_checkout_enabled && stripeConfigured ? ["pay_now"] : []),
-            ...(commerce.pay_later_enabled ? ["pay_later"] : [])
-          ]
-        },
-        domain: {
-          // Launch-repair: this used to hardcode `${slug}.bloom-sites.com`
-          // — a pre-rebrand domain with no real DNS/routing behind it at
-          // all (there's no bloom-sites.com redirect anywhere in this
-          // project). The site's actual, working temporary address is
-          // exactly what `base_url` already resolves to (a florisyn.com
-          // path, or the shop's connected custom domain) — derive `host`
-          // from that instead of a second, independently-hardcoded string
-          // that had drifted out of sync with the real routing.
-          host: resolved.base_url ? resolved.base_url.replace(/^https?:\/\//i, "") : null,
-          base_url: resolved.base_url,
-          purchased: false,
-          connected: !!shop.custom_domain,
-          status: shop.custom_domain ? "pending_verification" : "bloom_subdomain"
+        let preview = false;
+        const token = qs.preview_token;
+        if (token) {
+          const v = verifyPreviewToken(token, shop.id);
+          if (!v.valid) return json(403, { error: v.error });
+          preview = true;
         }
-      });
-    }
 
-    if (action === "create_web_order" || action === "create_web_checkout") {
-      const slug = body.shop_slug || qs.shop;
-      if (!slug) return json(400, { error: "shop_slug required." });
-      const client = admin();
-      const shop = await shopBySlug(client, slug);
-      if (!shop) return json(404, { error: "Shop not found." });
-      const bundle = await loadWebsiteBundle(client, shop.id);
-      return createWebCommerceOrder(client, { shop, bundle, body, event });
-    }
+        let bundle = await loadWebsiteBundle(client, shop.id);
+        if (!bundle) {
+          const site = fallbackSiteFromProfile(shop);
+          bundle = { project: site.project, pages: site.pages };
+        }
 
-    if (action === "preview_token") {
-      const ctx = await currentUser(event);
-      const expires = Date.now() + 1000 * 60 * 60 * 2;
-      const token = signPreviewToken(ctx.shopId, expires);
-      const shop = await loadShopProfile(ctx.client, ctx.shopId);
-      return json(200, {
-        token,
-        expires_at: new Date(expires).toISOString(),
-        preview_url: shop?.slug ? `/store/${shop.slug}/?preview_token=${encodeURIComponent(token)}` : null
-      });
-    }
+        const resolved = resolvePublishedSite(bundle.project, bundle.pages, shop, { preview });
+        if (!resolved.allowed) return json(404, { error: resolved.error });
 
-    return json(400, { error: "Unsupported action." });
-  } catch (error) {
-    return fail(error);
-  }
+        const products = filterPublicProducts(await loadPublicProducts(client, shop.id), {
+          collectionSlug: qs.collection || null,
+          query: qs.q || ""
+        });
+
+        const commerce = commerceSettingsFromBundle(bundle, shop);
+        const stripeConfigured = Boolean(process.env.STRIPE_SECRET_KEY);
+        return json(200, {
+          preview,
+          site: resolved,
+          products,
+          commerce: {
+            ...commerce,
+            stripe_available: stripeConfigured && commerce.stripe_checkout_enabled,
+            payment_modes: [
+              ...(commerce.stripe_checkout_enabled && stripeConfigured ? ["pay_now"] : []),
+              ...(commerce.pay_later_enabled ? ["pay_later"] : [])
+            ]
+          },
+          domain: {
+            // Launch-repair: this used to hardcode `${slug}.bloom-sites.com`
+            // — a pre-rebrand domain with no real DNS/routing behind it at
+            // all (there's no bloom-sites.com redirect anywhere in this
+            // project). The site's actual, working temporary address is
+            // exactly what `base_url` already resolves to (a florisyn.com
+            // path, or the shop's connected custom domain) — derive `host`
+            // from that instead of a second, independently-hardcoded string
+            // that had drifted out of sync with the real routing.
+            host: resolved.base_url ? resolved.base_url.replace(/^https?:\/\//i, "") : null,
+            base_url: resolved.base_url,
+            purchased: false,
+            connected: !!shop.custom_domain,
+            status: shop.custom_domain ? "pending_verification" : "bloom_subdomain"
+          }
+        });
+      }
+
+      if (action === "create_web_order" || action === "create_web_checkout") {
+        const slug = body.shop_slug || qs.shop;
+        if (!slug) return json(400, { error: "shop_slug required." });
+        const client = getAdmin();
+        const shop = await shopBySlug(client, slug);
+        if (!shop) return json(404, { error: "Shop not found." });
+        const bundle = await loadWebsiteBundle(client, shop.id);
+        return createWebCommerceOrder(client, { shop, bundle, body, event });
+      }
+
+      if (action === "preview_token") {
+        const ctx = await authenticate(event);
+        const expires = Date.now() + 1000 * 60 * 60 * 2;
+        const token = signPreviewToken(ctx.shopId, expires);
+        const shop = await loadShopProfile(ctx.client, ctx.shopId);
+        return json(200, {
+          token,
+          expires_at: new Date(expires).toISOString(),
+          preview_url: shop?.slug ? `/store/${shop.slug}/?preview_token=${encodeURIComponent(token)}` : null
+        });
+      }
+
+      return json(400, { error: "Unsupported action." });
+    } catch (error) {
+      return fail(error);
+    }
+  };
 }
+
+export const handler = createStorefrontPublicHandler();
 
 async function loadShopProfile(client, shopId) {
   const { data, error } = await client.from("shops").select("slug,name").eq("id", shopId).maybeSingle();
