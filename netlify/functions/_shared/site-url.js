@@ -3,6 +3,8 @@
  * Pathnames are sanitized — user-supplied full URLs cannot become open redirects.
  */
 
+import { allowedOrigins } from "./http.js";
+
 const LOCALHOST_RE = /localhost|127\.0\.0\.1|:8888\b/i;
 const NETLIFY_PREVIEW_RE = /^https:\/\/([a-z0-9-]+--)?[a-z0-9-]+\.netlify\.app$/i;
 
@@ -45,6 +47,38 @@ export function resolvePublicSiteUrl(env = process.env, requestOrigin = "") {
   }
 
   return "https://florisyn-staging.netlify.app";
+}
+
+/**
+ * Base for a public checkout's Stripe success_url / cancel_url.
+ *
+ * Launch-readiness audit (2026-09-28): payment-link-public.js used a
+ * caller-supplied `return_url` verbatim, so anyone holding a valid
+ * payment-link token could make Stripe send the paying customer to an
+ * arbitrary host after payment (an open redirect on a real payment flow).
+ * A supplied return_url is now honored only when its origin is one of this
+ * deployment's own allowed origins (SITE_URL / URL / the known production
+ * hosts / CORS_ALLOWED_ORIGINS), and is reduced to that origin; anything
+ * else — another host, ANY other *.netlify.app site (anyone can register
+ * one), localhost, a non-http scheme, garbage — falls back to
+ * resolvePublicSiteUrl(), which already resolves a real Deploy Preview
+ * through DEPLOY_PRIME_URL / the request Origin without trusting the body.
+ */
+export function resolveTrustedReturnBase(env = process.env, requestOrigin = "", returnUrl = "") {
+  const fallback = resolvePublicSiteUrl(env, requestOrigin);
+  const raw = String(returnUrl || "").trim();
+  if (!raw) return fallback;
+  let parsed;
+  try {
+    parsed = new URL(raw);
+  } catch {
+    return fallback;
+  }
+  if (parsed.protocol !== "https:" && parsed.protocol !== "http:") return fallback;
+  const origin = parsed.origin;
+  if (LOCALHOST_RE.test(origin)) return fallback;
+  if (allowedOrigins(env).includes(origin)) return origin;
+  return fallback;
 }
 
 export function getSiteUrlDiagnostics(env = process.env, requestOrigin = "") {

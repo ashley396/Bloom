@@ -52,9 +52,12 @@ test("inventory alerts critical stock", () => {
 });
 
 test("sales insights recommends with enough data", () => {
+  // Dates relative to now: salesInsights only counts orders inside its
+  // rolling `days` window, so a fixed August 2026 fixture silently aged out
+  // of the 30-day window and failed on CI from 2026-09 onward.
   const orders = Array.from({ length: 10 }, (_, i) => ({
     total: 80,
-    created_at: `2026-08-0${(i % 9) + 1}`,
+    created_at: new Date(Date.now() - ((i % 9) + 1) * 86_400_000).toISOString(),
     arrangement_description: i % 2 ? "sympathy spray" : "birthday roses",
     order_source: "POS"
   }));

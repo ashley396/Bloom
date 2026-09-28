@@ -61,15 +61,34 @@ test("mergeVoiceSettings uses defaults when values missing", () => {
 });
 
 test("assistant-tts handler advertises fallback when cloud not configured", async () => {
+  const { createAssistantTtsHandler } = await import("../netlify/functions/assistant-tts.js");
+  // Signed-in florist (the session gate is stubbed, the provider path is not).
+  const handler = createAssistantTtsHandler({ authenticate: async () => ({ shopId: "shop-1", user: { id: "user-1" } }) });
+  const saved = process.env.ELEVENLABS_API_KEY;
+  delete process.env.ELEVENLABS_API_KEY;
+  try {
+    const res = await handler({
+      httpMethod: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ persona: "Lily", text: "Hello" })
+    });
+    assert.equal(res.statusCode, 503);
+    const body = JSON.parse(res.body);
+    assert.equal(body.fallback, true);
+  } finally {
+    if (saved !== undefined) process.env.ELEVENLABS_API_KEY = saved;
+  }
+});
+
+test("assistant-tts handler requires a florist session (no session → 401, still advertises fallback)", async () => {
   const { handler } = await import("../netlify/functions/assistant-tts.js");
   const res = await handler({
     httpMethod: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ persona: "Lily", text: "Hello" })
   });
-  assert.equal(res.statusCode, 503);
-  const body = JSON.parse(res.body);
-  assert.equal(body.fallback, true);
+  assert.equal(res.statusCode, 401);
+  assert.equal(JSON.parse(res.body).fallback, true);
 });
 
 test("Lily panel hides technical AI outage text behind friendly offline copy", () => {

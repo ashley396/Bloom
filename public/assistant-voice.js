@@ -170,9 +170,19 @@
 
   async function tryCloudSpeak(persona, text) {
     try {
+      // Cloud voice is a signed-in florist feature: send the same session
+      // token app.js's api() sends. No session → the server answers 401
+      // with fallback:true → browser speech below, same as any non-2xx.
+      const headers = { "Content-Type": "application/json" };
+      try {
+        const session = JSON.parse(localStorage.getItem("bloom_session") || "null");
+        if (session?.accessToken) headers.Authorization = `Bearer ${session.accessToken}`;
+      } catch {
+        /* no readable session → unauthenticated call → fallback */
+      }
       const res = await fetch("/.netlify/functions/assistant-tts", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers,
         body: JSON.stringify({ persona, text: Core.prepareAssistantSpeechText(text, 800) })
       });
       const data = await res.json().catch(() => ({}));

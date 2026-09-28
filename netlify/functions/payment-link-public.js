@@ -6,7 +6,7 @@ import {
   transitionPaymentLinkStatus,
   validatePaymentLinkCreate
 } from "./_shared/payment-hub-experience.js";
-import { resolvePublicSiteUrl } from "./_shared/site-url.js";
+import { resolveTrustedReturnBase } from "./_shared/site-url.js";
 
 function missingTable(error) {
   return error?.code === "42P01" || String(error?.message || "").includes("does not exist");
@@ -95,7 +95,8 @@ export async function handler(event) {
             code: "stripe_connect_required"
           });
         }
-        const siteBase = (body.return_url || resolvePublicSiteUrl(process.env, event.headers?.origin || "")).replace(/\/$/, "");
+        // Never a caller-chosen host: see resolveTrustedReturnBase().
+        const siteBase = resolveTrustedReturnBase(process.env, event.headers?.origin || "", body.return_url).replace(/\/$/, "");
         const sessionParams = {
           mode: "payment",
           line_items: [
@@ -128,7 +129,9 @@ export async function handler(event) {
           }
         };
         if (shop?.stripe_connect_account_id) {
-          sessionParams.payment_intent_data = { transfer_data: { destination: shop.stripe_connect_account_id } };
+          // Merge, don't replace: replacing dropped the PaymentIntent
+          // metadata built above (the shop/order/link identifiers).
+          sessionParams.payment_intent_data.transfer_data = { destination: shop.stripe_connect_account_id };
         }
         const session = await stripe.checkout.sessions.create(sessionParams);
         return json(200, { checkout_url: session.url, amount: v.amount, partial: v.partial });
