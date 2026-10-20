@@ -73,7 +73,7 @@ export function pricePhotoRecipe(recipe, { stem_costs = {}, container_cost = 0, 
 }
 
 function toBuffer(imageBase64) {
-  const raw = String(imageBase64 || "").replace(/^data:image\/\w+;base64,/i, "");
+  const raw = String(imageBase64 || "").replace(/^data:image\/[a-z0-9.+-]+;base64,/i, "");
   if (!raw) return null;
   try {
     const buf = Buffer.from(raw, "base64");
@@ -169,7 +169,7 @@ export async function handler(event) {
       flowers: flowerText,
       recipe,
       design_notes: designNotes,
-      stems: recipe.every((r) => Number.isFinite(r.qty) && r.qty > 0)
+      stems: recipe.every((r) => r.quantity_status === "confirmed" && Number.isFinite(r.qty) && r.qty > 0)
         ? recipe.reduce((s, r) => s + r.qty, 0)
         : null,
       quantity_warning: "AI stem counts are estimates. Confirm quantities before pricing or inventory deduction.",
