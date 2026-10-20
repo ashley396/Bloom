@@ -33,6 +33,45 @@ function fallbackRecipe(flowerText) {
     });
 }
 
+
+/**
+ * Retail guidance is calculated only from costs explicitly supplied by the
+ * florist. Never treat model-inferred flower counts as verified inventory.
+ */
+export function pricePhotoRecipe(recipe, { stem_costs = {}, container_cost = 0, supply_cost = 0, labor_cost = 0, markup = 3 } = {}) {
+  if (!Array.isArray(recipe) || !recipe.length) return { available: false, reason: "No recipe available." };
+  if (recipe.some((row) => !Number.isFinite(row.qty) || row.qty <= 0 || row.quantity_status !== "confirmed")) {
+    return { available: false, reason: "Confirm the stem quantities before calculating a price." };
+  }
+  const costs = recipe.map((row) => {
+    const cost = stem_costs[row.name];
+    return typeof cost === "number" && Number.isFinite(cost) && cost >= 0 ? cost : null;
+  });
+  if (costs.some((cost) => cost === null)) {
+    return { available: false, reason: "Enter the wholesale cost per stem for each flower before calculating a price." };
+  }
+  const extras = [container_cost, supply_cost, labor_cost];
+  if (extras.some((value) => typeof value !== "number" || !Number.isFinite(value) || value < 0)) {
+    return { available: false, reason: "Container, supplies, and labor costs must be nonnegative numbers." };
+  }
+  const factor = Number(markup);
+  if (!Number.isFinite(factor) || factor < 1 || factor > 10) {
+    return { available: false, reason: "Markup must be between 1 and 10." };
+  }
+  const wholesale = recipe.reduce((sum, row, i) => sum + row.qty * costs[i], 0);
+  const base = wholesale + Number(container_cost) + Number(supply_cost);
+  const suggested = Math.ceil((base * factor + Number(labor_cost)) / 5) * 5;
+  return {
+    available: true,
+    wholesale_flower_cost: Math.round(wholesale * 100) / 100,
+    materials_cost: Math.round(base * 100) / 100,
+    suggested_price: suggested,
+    currency: "USD",
+    pricing_basis: "confirmed quantities and florist-entered costs",
+    excludes: ["tax", "delivery fees", "payment processing fees"]
+  };
+}
+
 function toBuffer(imageBase64) {
   const raw = String(imageBase64 || "").replace(/^data:image\/\w+;base64,/i, "");
   if (!raw) return null;
@@ -113,6 +152,18 @@ export async function handler(event) {
 
     if (!recipe || !recipe.length) recipe = fallbackRecipe(flowerText);
 
+    // Client-supplied counts must match identified flower names before being used.
+    const confirmed = body.confirmed_quantities && typeof body.confirmed_quantities === "object"
+      ? body.confirmed_quantities : {};
+    for (const row of recipe) {
+      const quantity = confirmed[row.name];
+      if (Number.isInteger(quantity) && quantity > 0 && quantity <= 999) {
+        row.qty = quantity;
+        row.quantity_status = "confirmed";
+      }
+    }
+    const pricing = pricePhotoRecipe(recipe, body.pricing || {});
+
     return json(200, {
       ok: true,
       flowers: flowerText,
@@ -121,8 +172,9 @@ export async function handler(event) {
       stems: recipe.every((r) => Number.isFinite(r.qty) && r.qty > 0)
         ? recipe.reduce((s, r) => s + r.qty, 0)
         : null,
-      quantity_warning: "Stem counts are suggestions, not verified from the photo. Confirm before pricing or inventory deduction.",
-      requires_quantity_confirmation: true,
+      quantity_warning: "AI stem counts are estimates. Confirm quantities before pricing or inventory deduction.",
+      requires_quantity_confirmation: recipe.some((row) => row.quantity_status !== "confirmed"),
+      pricing,
       provider: "Cloudflare Workers AI Vision + Lily"
     });
   } catch (error) {
