@@ -953,7 +953,14 @@ document.querySelectorAll('#publicHome a[href^="#"]').forEach((a)=>{
 
 <section id="bloomshotPage" class="page bloomshot-page">
   <div class="heading"><div><p class="eyebrow">PRO PHOTO + PRODUCT STUDIO</p><h1>Florisyn Photo Studio</h1><p class="subtle">Turn one arrangement photo into editable, website-ready and social-ready content. Nothing saves or publishes until you approve it.</p></div><div class="actions"><button id="bloomshotRestore" class="secondary" type="button">Restore original</button><button id="bloomshotRemovePhoto" class="secondary" type="button">Remove photo</button><button id="bloomshotDownload" class="primary" type="button">Download image</button></div></div>
-  <div class="bloomshot-workspace">
+  <div class="panel" id="lilyOnePhotoPanel" style="margin:12px 0;padding:18px;border-radius:18px">
+  <label for="lilyOnePhotoRequest"><strong>Ask Lily — one photo, one request</strong></label>
+  <input id="lilyOnePhotoRequest" type="text" value="Give me a simple background, recipe and suggested price for this arrangement" aria-label="What should Lily do with your photo?" style="width:100%;margin:10px 0" />
+  <button id="lilyOnePhotoRun" class="primary" type="button">Make it for me</button>
+  <p id="lilyOnePhotoStatus" role="status" aria-live="polite" class="subtle">Upload a photo, then ask Lily.</p>
+  <div id="lilyOnePhotoResults" aria-live="polite"></div>
+</div>
+<div class="bloomshot-workspace">
     <section class="panel bloomshot-editor">
       <label class="bloomshot-upload" for="bloomshotFile"><input id="bloomshotFile" type="file" accept="image/*"><strong>Choose or take an arrangement photo</strong><span>Processing stays in this browser for the free editing tools.</span></label>
       <div class="bloomshot-canvas-wrap"><canvas id="bloomshotCanvas" width="1200" height="1200"></canvas><div id="bloomshotEmpty" class="bloomshot-empty">📸<b>Your photo will appear here</b><span>Upload a JPG, PNG, or phone photo.</span></div></div>
