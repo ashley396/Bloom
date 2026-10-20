@@ -20,7 +20,7 @@ function guessKind(name) {
   return "filler";
 }
 
-/** Split Lily's comma line into a basic recipe so the florist always gets something. */
+/** Preserve detected flower names without inventing quantities when generation fails. */
 function fallbackRecipe(flowerText) {
   return String(flowerText || "")
     .split(/[,\n]+/)
@@ -29,8 +29,7 @@ function fallbackRecipe(flowerText) {
     .slice(0, 18)
     .map((name) => {
       const kind = guessKind(name);
-      const qty = kind === "focal" ? 7 : kind === "foliage" ? 4 : 6;
-      return { name, qty, kind };
+      return { name, qty: null, kind, quantity_status: "unknown" };
     });
 }
 
@@ -86,7 +85,8 @@ export async function handler(event) {
           "Convert ONLY the flowers and foliage in this identified list into florist recipe rows. " +
           "Do NOT add any flower that is not in the list — never invent a fuller arrangement. " +
           "Keep each name as given (you may expand an obvious color like 'yellow rose' to a proper wholesale name). " +
-          "For each item estimate a realistic stem count for a standard hand-tied arrangement and its role " +
+          "The photo analysis contains names only, NOT observed quantities. Never claim counts were verified. " +
+          "For each item suggest a provisional stem count for a standard arrangement and its role " +
           "(focal, filler, or foliage). If the list is vague or very short, return just those items. Return strict JSON.",
         input: { identified_flowers: flowerText },
         schema: {
@@ -102,7 +102,8 @@ export async function handler(event) {
           .map((r) => ({
             name: String(r.name).slice(0, 60),
             qty: Math.max(1, Math.min(99, Math.round(Number(r.qty) || 1))),
-            kind: /focal|filler|foliage/i.test(r.kind || "") ? String(r.kind).toLowerCase() : guessKind(r.name)
+            kind: /focal|filler|foliage/i.test(r.kind || "") ? String(r.kind).toLowerCase() : guessKind(r.name),
+            quantity_status: "estimated"
           }));
       }
       designNotes = String(result.design_notes || "").slice(0, 600);
@@ -117,7 +118,11 @@ export async function handler(event) {
       flowers: flowerText,
       recipe,
       design_notes: designNotes,
-      stems: recipe.reduce((s, r) => s + Number(r.qty || 0), 0),
+      stems: recipe.every((r) => Number.isFinite(r.qty) && r.qty > 0)
+        ? recipe.reduce((s, r) => s + r.qty, 0)
+        : null,
+      quantity_warning: "Stem counts are suggestions, not verified from the photo. Confirm before pricing or inventory deduction.",
+      requires_quantity_confirmation: true,
       provider: "Cloudflare Workers AI Vision + Lily"
     });
   } catch (error) {
